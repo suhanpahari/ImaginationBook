@@ -18,6 +18,8 @@ import {
   Minus,
   Plus,
   Type,
+  Palette,
+  Eraser,
 } from "lucide-react";
 
 // Cartoon figures data
@@ -49,7 +51,7 @@ export default function InfiniteCanvas() {
   const [strokeColor, setStrokeColor] = useState("#FF0000");
   const [fillColor, setFillColor] = useState("");
   const [strokeWidth, setStrokeWidth] = useState(2);
-  const [textSize, setTextSize] = useState(16); // Default text size
+  const [textSize, setTextSize] = useState(16);
   const [history, setHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
@@ -60,6 +62,7 @@ export default function InfiniteCanvas() {
   const [cartoonImages, setCartoonImages] = useState({});
   const [magicMenuOpen, setMagicMenuOpen] = useState(false);
   const [drawingId, setDrawingId] = useState(null);
+  const [pageColor, setPageColor] = useState("");
 
   // Load cartoon images
   useEffect(() => {
@@ -94,10 +97,10 @@ export default function InfiniteCanvas() {
     return () => window.removeEventListener("resize", resizeCanvas);
   }, []);
 
-  // Redraw canvas whenever elements, pan offset, or scale changes
+  // Redraw canvas whenever elements, pan offset, scale, or pageColor changes
   useEffect(() => {
     redrawCanvas();
-  }, [elements, panOffset, scale]);
+  }, [elements, panOffset, scale, pageColor]);
 
   // Generate a unique ID
   const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -165,7 +168,7 @@ export default function InfiniteCanvas() {
         }
       } else if (element.type === "text") {
         const [x1, y1] = [element.points[0].x, element.points[0].y];
-        const textWidth = element.text.length * (element.textSize / 2); // Rough estimate
+        const textWidth = element.text.length * (element.textSize / 2);
         const textHeight = element.textSize;
         if (
           adjustedX >= x1 &&
@@ -205,7 +208,7 @@ export default function InfiniteCanvas() {
     return Math.sqrt(dx * dx + dy * dy);
   };
 
-  // Create element (including text)
+  // Create element
   const createElement = (id, x1, y1, x2, y2, type, cartoonType, text) => {
     const roughOptions = {
       seed: Math.floor(Math.random() * 2000),
@@ -289,21 +292,18 @@ export default function InfiniteCanvas() {
     });
   };
 
-  // Save drawing to database (update if ID exists)
+  // Save drawing to database
   const saveToDatabase = async () => {
     try {
-      const drawingData = 
-      {
+      const drawingData = {
         elements: elements.map(({ roughElement, ...rest }) => rest),
         name: `Drawing-${Date.now()}`,
       };
       let url = "http://localhost:3000/api/drawings";
       let method = "POST";
-      
-      if (drawingId) 
-      {
+      if (drawingId) {
         url = `http://localhost:3000/api/drawings/${drawingId}`;
-        method = "PUT"; // Use PUT to update existing drawing
+        method = "PUT";
       }
       const response = await fetch(url, {
         method,
@@ -312,11 +312,9 @@ export default function InfiniteCanvas() {
       });
       const result = await response.json();
       if (response.ok) {
-        if (!drawingId) setDrawingId(result.id); // Set ID only if new
+        if (!drawingId) setDrawingId(result.id);
         alert("Drawing saved successfully!");
-      } 
-      else 
-      {
+      } else {
         throw new Error(result.error || "Failed to save drawing");
       }
     } catch (error) {
@@ -358,6 +356,15 @@ export default function InfiniteCanvas() {
     const adjustedX = (clientX - panOffset.x) / scale;
     const adjustedY = (clientY - panOffset.y) / scale;
     const elementAtPosition = getElementAtPosition(clientX, clientY);
+    if (tool === "eraser") {
+      setAction("erasing");
+      if (elementAtPosition) {
+        const { element } = elementAtPosition;
+        setElements((prev) => prev.filter((el) => el.id !== element.id));
+        updateHistory(elements.filter((el) => el.id !== element.id));
+      }
+      return;
+    }
     if (elementAtPosition) {
       const { element } = elementAtPosition;
       setSelectedElement(element);
@@ -415,6 +422,14 @@ export default function InfiniteCanvas() {
       const dy = clientY - startPanMousePosition.y;
       setPanOffset((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
       setStartPanMousePosition({ x: clientX, y: clientY });
+      return;
+    }
+    if (action === "erasing" && tool === "eraser") {
+      const elementAtPosition = getElementAtPosition(clientX, clientY);
+      if (elementAtPosition) {
+        const { element } = elementAtPosition;
+        setElements((prev) => prev.filter((el) => el.id !== element.id));
+      }
       return;
     }
     if (action === "drawing" && selectedElement) {
@@ -479,6 +494,8 @@ export default function InfiniteCanvas() {
   const handleMouseUp = () => {
     if (action === "drawing" || action === "moving") {
       if (selectedElement) updateHistory([...elements]);
+    } else if (action === "erasing") {
+      updateHistory([...elements]); // Update history after erasing
     }
     setAction("none");
     setSelectedElement(null);
@@ -535,7 +552,7 @@ export default function InfiniteCanvas() {
           }
         }
       } else if (element.type === "text" && element.text) {
-        context.font = `${element.textSize}px Comic Sans MS`; // Fun font for kids
+        context.font = `${element.textSize}px Comic Sans MS`;
         context.fillStyle = element.strokeColor;
         context.fillText(element.text, element.points[0].x, element.points[0].y);
         if (selectedElement && selectedElement.id === element.id) {
@@ -583,7 +600,7 @@ export default function InfiniteCanvas() {
     tempCanvas.height = canvas.height;
     const tempContext = tempCanvas.getContext("2d");
     if (!tempContext) return;
-    tempContext.fillStyle = "white";
+    tempContext.fillStyle = pageColor || "white";
     tempContext.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
     tempContext.drawImage(canvas, 0, 0);
     const link = document.createElement("a");
@@ -640,11 +657,18 @@ export default function InfiniteCanvas() {
     saveAsImage(filename);
     setMagicMenuOpen(false);
     console.log(`Selected: ${option} - Screenshot saved as ${filename}`);
-    // Add further logic here for video, animation, audio if needed
   };
 
+  // Reset page color to gradient
+  const resetPageColor = () => setPageColor("");
+
   return (
-    <div className="relative w-full h-screen overflow-hidden bg-gradient-to-br from-blue-200 to-pink-200">
+    <div
+      className="relative w-full h-screen overflow-hidden"
+      style={{
+        background: pageColor || "linear-gradient(to bottom right, #bfdbfe, #fbcfe8)",
+      }}
+    >
       {/* Canvas */}
       <canvas
         ref={canvasRef}
@@ -656,11 +680,11 @@ export default function InfiniteCanvas() {
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        style={{ cursor: tool === "move" ? "grab" : "crosshair" }}
+        style={{ cursor: tool === "move" ? "grab" : tool === "eraser" ? "crosshair" : "crosshair" }}
       />
 
       {/* Toolbar */}
-      <div className="absolute flex items-center p-4 space-x-4 transform -translate-x-1/2 bg-yellow-300 shadow-2xl top-4 left-1/2 rounded-xl">
+      <div className="absolute flex items-center p-4 overflow-x-auto bg-yellow-300 shadow-2xl top-4 left-4 right-4 rounded-xl whitespace-nowrap">
         <button
           className={`p-3 rounded-full ${tool === "pencil" ? "bg-green-400" : "bg-white"} hover:bg-green-200 shadow-md`}
           onClick={() => setTool("pencil")}
@@ -700,6 +724,14 @@ export default function InfiniteCanvas() {
         >
           <Type size={28} color="#333" />
           <span className="block text-xs font-bold text-purple-800">Text</span>
+        </button>
+        <button
+          className={`p-3 rounded-full ${tool === "eraser" ? "bg-red-400" : "bg-white"} hover:bg-red-200 shadow-md`}
+          onClick={() => setTool("eraser")}
+          title="Eraser"
+        >
+          <Eraser size={28} color="#333" />
+          <span className="block text-xs font-bold text-purple-800">Erase</span>
         </button>
         <button
           className={`p-3 rounded-full ${tool === "move" ? "bg-orange-400" : "bg-white"} hover:bg-orange-200 shadow-md`}
@@ -766,6 +798,21 @@ export default function InfiniteCanvas() {
           className="w-10 h-10 border-2 border-yellow-500 rounded-full shadow-md cursor-pointer"
           title="Fill Color"
         />
+        <input
+          type="color"
+          value={pageColor || "#ffffff"}
+          onChange={(e) => setPageColor(e.target.value === "#ffffff" ? "" : e.target.value)}
+          className="w-10 h-10 border-2 border-yellow-500 rounded-full shadow-md cursor-pointer"
+          title="Page Color"
+        />
+        <button
+          className="p-3 bg-white rounded-full shadow-md hover:bg-gray-200"
+          onClick={resetPageColor}
+          title="Reset Page Color"
+        >
+          <Palette size={28} color="#333" />
+          <span className="block text-xs font-bold text-purple-800">Reset</span>
+        </button>
 
         <div className="w-1 h-8 mx-2 bg-purple-500 rounded-full" />
 

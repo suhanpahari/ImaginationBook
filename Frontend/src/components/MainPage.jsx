@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Book, LogOut, History, Star, Edit, Image, PlayCircle, Home, Sparkles, Rocket, Zap } from 'lucide-react';
+import { Book, LogOut, History, Star, Edit, Image, PlayCircle, Sparkles, Rocket, Zap } from 'lucide-react';
+import { useNavigate } from "react-router-dom"
 
 export default function ImaginationBookHome() {
   const [activeTab, setActiveTab] = useState('explore');
   const [animateBackground, setAnimateBackground] = useState(0);
-  
+  const navigate = useNavigate(); 
+
   // Animated background effect
   useEffect(() => {
     const interval = setInterval(() => {
@@ -173,7 +175,10 @@ export default function ImaginationBookHome() {
                 </h3>
                 <p className="text-gray-600">Write your story and watch it transform into magical animations and illustrations!</p>
                 <div className="flex justify-end mt-4">
-                  <button className="flex items-center px-6 py-2 text-sm text-white transition-all transform bg-blue-500 rounded-full shadow-lg hover:bg-blue-400 hover:scale-105">
+                  <button 
+                    onClick={() => navigate("/board1")}
+                    className="flex items-center px-6 py-2 text-sm text-white transition-all transform bg-blue-500 rounded-full shadow-lg hover:bg-blue-400 hover:scale-105"
+                  >
                     <Zap className="mr-1" size={14} />
                     Open Canvas
                   </button>
@@ -197,7 +202,10 @@ export default function ImaginationBookHome() {
                 </h3>
                 <p className="text-gray-600">Describe what you imagine and watch as AI creates amazing artwork from your ideas!</p>
                 <div className="flex justify-end mt-4">
-                  <button className="flex items-center px-6 py-2 text-sm text-white transition-all transform bg-purple-500 rounded-full shadow-lg hover:bg-purple-400 hover:scale-105">
+                  <button 
+                    onClick={() => navigate("/board2")}
+                    className="flex items-center px-6 py-2 text-sm text-white transition-all transform bg-purple-500 rounded-full shadow-lg hover:bg-purple-400 hover:scale-105"
+                  >
                     <Zap className="mr-1" size={14} />
                     Open Canvas
                   </button>
@@ -221,7 +229,10 @@ export default function ImaginationBookHome() {
                 </h3>
                 <p className="text-gray-600">Create amazing moving stories with sounds and music that bring your ideas to life!</p>
                 <div className="flex justify-end mt-4">
-                  <button className="flex items-center px-6 py-2 text-sm text-white transition-all transform bg-pink-500 rounded-full shadow-lg hover:bg-pink-400 hover:scale-105">
+                  <button 
+                    onClick={() => navigate("/board3")}
+                    className="flex items-center px-6 py-2 text-sm text-white transition-all transform bg-pink-500 rounded-full shadow-lg hover:bg-pink-400 hover:scale-105"
+                  >
                     <Zap className="mr-1" size={14} />
                     Open Canvas
                   </button>

@@ -64,7 +64,7 @@ app.post('/login' , async (req,res)=>
 // Save Drawing (Create)
 app.post("/api/drawings", async (req, res) => {
   try {
-    const drawing = new Drawing(req.body);
+    const drawing = new DraftCanvas(req.body);
     await drawing.save();
     res.status(201).json({ id: drawing._id });
   } catch (error) {
@@ -75,7 +75,7 @@ app.post("/api/drawings", async (req, res) => {
 // Update Drawing
 app.put("/api/drawings/:id", async (req, res) => {
   try {
-    const drawing = await Drawing.findByIdAndUpdate(
+    const drawing = await DraftCanvas.findByIdAndUpdate(
       req.params.id,
       { elements: req.body.elements, name: req.body.name },
       { new: true }
@@ -90,7 +90,7 @@ app.put("/api/drawings/:id", async (req, res) => {
 // Load Drawing
 app.get("/api/drawings/:id", async (req, res) => {
   try {
-    const drawing = await Drawing.findById(req.params.id);
+    const drawing = await DraftCanvas.findById(req.params.id);
     if (!drawing) return res.status(404).json({ error: "Drawing not found" });
     res.json(drawing);
   } catch (error) {
