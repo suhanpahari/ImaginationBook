@@ -3,6 +3,8 @@
 import React from "react";
 import { useEffect, useRef, useState } from "react";
 import { RoughCanvas } from "roughjs/bin/canvas";
+import { useSelector } from "react-redux";
+
 import {
   Pencil,
   Square,
@@ -42,6 +44,8 @@ const cartoonFigures = [
 ];
 
 export default function InfiniteCanvas() {
+  const {userEmail, userPassword} = useSelector((state) => state.user);
+  console.log(userEmail, userPassword);
   const canvasRef = useRef(null);
   const roughCanvasRef = useRef(null);
   const [elements, setElements] = useState([]);
@@ -308,7 +312,11 @@ export default function InfiniteCanvas() {
       const response = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(drawingData),
+        body: JSON.stringify({
+          drawingData,
+          userEmail,
+          userPassword,
+        }),
       });
       const result = await response.json();
       if (response.ok) {
@@ -326,7 +334,7 @@ export default function InfiniteCanvas() {
   // Load drawing from database
   const loadFromDatabase = async (id = "67f95d1452fbc68703c12ed6") => {
     try {
-      const response = await fetch(`http://localhost:3000/api/drawings/${id}`);
+      const response = await fetch(`http://localhost:3000/api/drawings/${id}/${userEmail}`);
       const result = await response.json();
       if (response.ok) {
         const loadedElements = regenerateElements(result.elements);

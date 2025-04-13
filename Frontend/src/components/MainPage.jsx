@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Book, LogOut, History, Star, Edit, Image, PlayCircle, Sparkles, Rocket, Zap } from 'lucide-react';
 import { useNavigate } from "react-router-dom"
+import { useSelector, useDispatch } from 'react-redux';
+import { setUserEmail, setUserPassword, clearCredentials } from '../Redux/slices/user/user';
+
 
 export default function ImaginationBookHome() {
   const [activeTab, setActiveTab] = useState('explore');
@@ -82,11 +85,12 @@ export default function ImaginationBookHome() {
           <div className="flex items-center space-x-4">
             <div className="relative">
               <div className="absolute inset-0 rounded-full bg-gradient-to-r from-pink-400 to-purple-500 animate-spin-slow opacity-70"></div>
-              <img 
-                src="/api/placeholder/44/44" 
-                alt="Profile" 
-                className="relative z-10 border-2 border-white rounded-full"
+              <img
+                src="https://static.vecteezy.com/system/resources/previews/021/548/095/non_2x/default-profile-picture-avatar-user-avatar-icon-person-icon-head-icon-profile-picture-icons-default-anonymous-user-male-and-female-businessman-photo-placeholder-social-network-avatar-portrait-free-vector.jpg"
+                alt="user"
+                className="relative z-10 w-10 h-10 border-2 border-white rounded-full"
               />
+
               <span className="absolute bottom-0 right-0 z-20 w-3 h-3 bg-green-400 border-2 border-white rounded-full"></span>
             </div>
             <button className="text-white transition-colors hover:text-yellow-300">
