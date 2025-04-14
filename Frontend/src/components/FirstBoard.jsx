@@ -263,7 +263,7 @@ const FirstBoard = () => {
             part: "snippet",
             q: query,
             type: "video",
-            maxResults: 10,
+            maxResults: 200,
             key: import.meta.env.VITE_YOUTUBE_API_KEY,
           },
         }
@@ -1110,6 +1110,10 @@ const FirstBoard = () => {
         </div>
       )}
 
+
+
+
+
       {/* Text Area */}
       {action === "writing" && (
         <textarea
@@ -1195,28 +1199,7 @@ const FirstBoard = () => {
         )}
       </div>
 
-      {/* Hint */}
-      <div
-        className="fixed z-20 p-4 bg-pink-200 border-2 border-purple-500 shadow-lg rounded-xl bottom-4"
-        style={{
-          right: showVideoSection ? `${window.innerWidth * 0.25 + 16}px` : "1rem",
-        }}
-      >
-        <div className="flex items-start">
-          <svg className="w-6 h-6 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
-          <div className="ml-2">
-            <h3 className="text-lg font-bold text-purple-800">Hey, Little Artist!</h3>
-            <p className="text-sm text-purple-700">Draw with your stylus or finger! Watch fun videos for inspiration!</p>
-          </div>
-        </div>
-      </div>
+     
     </div>
   );
 };

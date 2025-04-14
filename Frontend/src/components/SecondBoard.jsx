@@ -4,6 +4,8 @@ import React from "react";
 import { useEffect, useRef, useState } from "react";
 import { RoughCanvas } from "roughjs/bin/canvas";
 import { useSelector } from "react-redux";
+import { Search, X, ArrowLeft, Youtube } from "lucide-react";
+import YouTube from "react-youtube";
 
 import {
   Pencil,
@@ -44,7 +46,7 @@ const cartoonFigures = [
 ];
 
 export default function InfiniteCanvas() {
-  const {userEmail, userPassword} = useSelector((state) => state.user);
+  const { userEmail, userPassword } = useSelector((state) => state.user);
   console.log(userEmail, userPassword);
   const canvasRef = useRef(null);
   const roughCanvasRef = useRef(null);
@@ -67,6 +69,26 @@ export default function InfiniteCanvas() {
   const [magicMenuOpen, setMagicMenuOpen] = useState(false);
   const [drawingId, setDrawingId] = useState(null);
   const [pageColor, setPageColor] = useState("");
+  const [videoSectionOpen, setVideoSectionOpen] = useState(false);
+  const [videoSearchQuery, setVideoSearchQuery] = useState("");
+  const [videoResults, setVideoResults] = useState([]);
+  const [selectedVideoId, setSelectedVideoId] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  // YouTube player options
+  const playerOptions = {
+    height: "100%",
+    width: "100%",
+    playerVars: {
+      autoplay: 0,
+      controls: 1,
+      modestbranding: 1,
+      rel: 0,
+      fs: 1,
+      origin: window.location.origin,
+    },
+  };
 
   // Load cartoon images
   useEffect(() => {
@@ -87,11 +109,11 @@ export default function InfiniteCanvas() {
     }
   }, []);
 
-  // Resize canvas to fit window
+  // Resize canvas dynamically
   useEffect(() => {
     const resizeCanvas = () => {
       if (canvasRef.current) {
-        canvasRef.current.width = window.innerWidth;
+        canvasRef.current.width = videoSectionOpen ? window.innerWidth * 0.75 : window.innerWidth;
         canvasRef.current.height = window.innerHeight;
         redrawCanvas();
       }
@@ -99,12 +121,62 @@ export default function InfiniteCanvas() {
     window.addEventListener("resize", resizeCanvas);
     resizeCanvas();
     return () => window.removeEventListener("resize", resizeCanvas);
-  }, []);
+  }, [videoSectionOpen]);
 
-  // Redraw canvas whenever elements, pan offset, scale, or pageColor changes
+  // Redraw canvas when elements or video section changes
   useEffect(() => {
     redrawCanvas();
-  }, [elements, panOffset, scale, pageColor]);
+  }, [elements, panOffset, scale, pageColor, videoSectionOpen, videoResults, selectedVideoId]);
+
+  // Handle video search using YouTube API
+  const handleVideoSearch = async (query) => {
+    if (!query) return;
+    try {
+      setIsLoading(true);
+      setError(null);
+      const apiKey = import.meta.env.VITE_YOUTUBE_API_KEY || "YOUR_YOUTUBE_API_KEY"; // Replace with your API key
+      const response = await fetch(
+        `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=50&q=${encodeURIComponent(
+          query
+        )}&type=video&safeSearch=strict&key=${apiKey}`
+      );
+      const data = await response.json();
+      if (response.ok) {
+        const videos = data.items.map((item) => ({
+          id: { videoId: item.id.videoId },
+          snippet: {
+            title: item.snippet.title,
+            thumbnails: {
+              medium: { url: item.snippet.thumbnails.medium.url },
+            },
+          },
+        }));
+        setVideoResults(videos.slice(0, 50));
+      } else {
+        throw new Error(data.error?.message || "Failed to fetch videos");
+      }
+    } catch (err) {
+      console.error("Error fetching videos:", err);
+      setError("Oops! Couldn't load videos. Try again later.");
+      setVideoResults([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Open YouTube Kids
+  const openYouTubeKids = () => {
+    window.open("https://www.youtubekids.com/", "_blank");
+  };
+
+  // Toggle video section
+  const toggleVideoSection = () => {
+    setVideoSectionOpen(!videoSectionOpen);
+    setVideoSearchQuery("");
+    setVideoResults([]);
+    setSelectedVideoId(null);
+    setError(null);
+  };
 
   // Generate a unique ID
   const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -503,7 +575,7 @@ export default function InfiniteCanvas() {
     if (action === "drawing" || action === "moving") {
       if (selectedElement) updateHistory([...elements]);
     } else if (action === "erasing") {
-      updateHistory([...elements]); // Update history after erasing
+      updateHistory([...elements]);
     }
     setAction("none");
     setSelectedElement(null);
@@ -516,12 +588,14 @@ export default function InfiniteCanvas() {
       handleMouseDown({ clientX: touch.clientX, clientY: touch.clientY, button: 0 });
     }
   };
+
   const handleTouchMove = (event) => {
     if (event.touches.length === 1) {
       const touch = event.touches[0];
       handleMouseMove({ clientX: touch.clientX, clientY: touch.clientY });
     }
   };
+
   const handleTouchEnd = () => handleMouseUp();
 
   // Redraw the canvas
@@ -534,6 +608,8 @@ export default function InfiniteCanvas() {
     context.save();
     context.translate(panOffset.x, panOffset.y);
     context.scale(scale, scale);
+
+    // Draw elements
     elements.forEach((element) => {
       context.globalAlpha = 1;
       if (element.type === "pencil") {
@@ -577,6 +653,27 @@ export default function InfiniteCanvas() {
         roughCanvasRef.current.draw(element.roughElement);
       }
     });
+
+    // Draw video section on canvas if open
+    if (videoSectionOpen) {
+      const videoSectionWidth = window.innerWidth * 0.25;
+      const videoSectionHeight = window.innerHeight * 0.25;
+      const videoSectionX = (window.innerWidth * 0.75) / scale - panOffset.x / scale;
+      const videoSectionY = (window.innerHeight - videoSectionHeight) / scale - panOffset.y / scale;
+
+      // Draw background
+      context.fillStyle = "rgba(255, 255, 255, 0.95)";
+      context.fillRect(videoSectionX, videoSectionY, videoSectionWidth / scale, videoSectionHeight / scale);
+      context.strokeStyle = "#FFD700";
+      context.lineWidth = 4 / scale;
+      context.strokeRect(videoSectionX, videoSectionY, videoSectionWidth / scale, videoSectionHeight / scale);
+
+      // Draw title
+      context.font = `${20 / scale}px Comic Sans MS`;
+      context.fillStyle = "#6B21A8";
+      context.fillText("Fun Videos for Kids!", videoSectionX + 10 / scale, videoSectionY + 30 / scale);
+    }
+
     context.restore();
   };
 
@@ -667,8 +764,10 @@ export default function InfiniteCanvas() {
     console.log(`Selected: ${option} - Screenshot saved as ${filename}`);
   };
 
-  // Reset page color to gradient
-  const resetPageColor = () => setPageColor("");
+  // Prevent scroll propagation
+  const handleVideoSectionScroll = (e) => {
+    e.stopPropagation();
+  };
 
   return (
     <div
@@ -680,7 +779,12 @@ export default function InfiniteCanvas() {
       {/* Canvas */}
       <canvas
         ref={canvasRef}
-        className="absolute top-0 left-0 w-full h-full touch-none"
+        className="absolute top-0 left-0 touch-none"
+        style={{
+          width: videoSectionOpen ? `${window.innerWidth * 0.75}px` : "100%",
+          height: "100%",
+          cursor: tool === "move" ? "grab" : tool === "eraser" ? "crosshair" : "crosshair",
+        }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
@@ -688,11 +792,16 @@ export default function InfiniteCanvas() {
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        style={{ cursor: tool === "move" ? "grab" : tool === "eraser" ? "crosshair" : "crosshair" }}
       />
 
       {/* Toolbar */}
-      <div className="absolute flex items-center p-4 overflow-x-auto bg-yellow-300 shadow-2xl top-4 left-4 right-4 rounded-xl whitespace-nowrap">
+      <div
+        className="absolute flex items-center p-4 overflow-x-auto bg-yellow-300 shadow-2xl top-4 rounded-xl"
+        style={{
+          left: "1rem",
+          right: videoSectionOpen ? `${window.innerWidth * 0.25 + 16}px` : "1rem",
+        }}
+      >
         <button
           className={`p-3 rounded-full ${tool === "pencil" ? "bg-green-400" : "bg-white"} hover:bg-green-200 shadow-md`}
           onClick={() => setTool("pencil")}
@@ -749,9 +858,7 @@ export default function InfiniteCanvas() {
           <Move size={28} color="#333" />
           <span className="block text-xs font-bold text-purple-800">Move</span>
         </button>
-
         <div className="w-1 h-8 mx-2 bg-purple-500 rounded-full" />
-
         <div className="flex items-center p-2 space-x-2 bg-white rounded-lg shadow-md">
           <button
             className="p-2 bg-blue-300 rounded-full hover:bg-blue-400"
@@ -770,7 +877,6 @@ export default function InfiniteCanvas() {
           </button>
           <span className="ml-2 text-xs font-bold text-purple-800">Size</span>
         </div>
-
         <div className="flex items-center p-2 space-x-2 bg-white rounded-lg shadow-md">
           <button
             className="p-2 bg-blue-300 rounded-full hover:bg-blue-400"
@@ -789,9 +895,7 @@ export default function InfiniteCanvas() {
           </button>
           <span className="ml-2 text-xs font-bold text-purple-800">Text Size</span>
         </div>
-
         <div className="w-1 h-8 mx-2 bg-purple-500 rounded-full" />
-
         <input
           type="color"
           value={strokeColor}
@@ -815,15 +919,22 @@ export default function InfiniteCanvas() {
         />
         <button
           className="p-3 bg-white rounded-full shadow-md hover:bg-gray-200"
-          onClick={resetPageColor}
+          onClick={() => setPageColor("")}
           title="Reset Page Color"
         >
           <Palette size={28} color="#333" />
           <span className="block text-xs font-bold text-purple-800">Reset</span>
         </button>
-
         <div className="w-1 h-8 mx-2 bg-purple-500 rounded-full" />
-
+        <button
+          className={`p-3 rounded-full ${videoSectionOpen ? "bg-teal-400" : "bg-white"} hover:bg-teal-200 shadow-md`}
+          onClick={toggleVideoSection}
+          title="Videos"
+        >
+          <Youtube size={28} color="#333" />
+          <span className="block text-xs font-bold text-purple-800">Videos</span>
+        </button>
+        <div className="w-1 h-8 mx-2 bg-purple-500 rounded-full" />
         <button
           className="p-3 bg-white rounded-full shadow-md hover:bg-gray-200"
           onClick={undo}
@@ -842,9 +953,7 @@ export default function InfiniteCanvas() {
           <Redo size={28} color={historyIndex >= history.length - 1 ? "#ccc" : "#333"} />
           <span className="block text-xs font-bold text-purple-800">Redo</span>
         </button>
-
         <div className="w-1 h-8 mx-2 bg-purple-500 rounded-full" />
-
         <button
           className="p-3 bg-white rounded-full shadow-md hover:bg-green-200"
           onClick={zoomIn}
@@ -868,9 +977,7 @@ export default function InfiniteCanvas() {
         >
           <span className="text-sm font-bold text-purple-800">Reset</span>
         </button>
-
         <div className="w-1 h-8 mx-2 bg-purple-500 rounded-full" />
-
         <button
           className="p-3 bg-red-400 rounded-full shadow-md hover:bg-red-500"
           onClick={clearCanvas}
@@ -917,8 +1024,119 @@ export default function InfiniteCanvas() {
         </div>
       )}
 
+
+
+
+{/* Video Section  */}
+{videoSectionOpen && (
+  <div className="fixed top-0 right-0 z-30 flex flex-col w-1/4 h-screen bg-white shadow-2xl rounded-l-xl">
+    {/* Close Button */}
+    <button
+      className="absolute z-40 p-1 bg-red-400 rounded-full top-2 right-2 hover:bg-red-500"
+      onClick={toggleVideoSection}
+      title="Close"
+    >
+      <X size={20} color="#fff" />
+    </button>
+
+    {/* Inner content with scroll */}
+    <div className="relative flex flex-col flex-1 p-4 overflow-y-auto">
+      {/* Search Bar */}
+      {!selectedVideoId && (
+        <div className="flex items-center mb-4">
+          <div className="relative flex-grow">
+            <input
+              type="text"
+              value={videoSearchQuery}
+              onChange={(e) => setVideoSearchQuery(e.target.value)}
+              onKeyPress={(e) => e.key === "Enter" && handleVideoSearch(videoSearchQuery)}
+              placeholder="Search for videos..."
+              className="w-full p-2 pr-10 text-sm text-purple-800 placeholder-purple-400 border-2 border-yellow-400 rounded-full bg-pink-50 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+            <button
+              className="absolute p-1 bg-purple-500 rounded-full right-2 top-2 hover:bg-purple-600"
+              onClick={() => handleVideoSearch(videoSearchQuery)}
+              title="Search"
+            >
+              <Search size={16} color="#fff" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Video or Search Results */}
+      {selectedVideoId ? (
+        <div className="flex flex-col">
+          {/* Enlarged YouTube Video */}
+          <div className="relative mb-2 h-80">
+            <div className="absolute top-0 left-0 w-full h-full">
+              <YouTube videoId={selectedVideoId} opts={playerOptions} />
+            </div>
+          </div>
+
+          {/* Back Button */}
+          <button
+            className="w-full px-4 py-1 text-sm font-bold text-white bg-yellow-500 rounded-full shadow-md hover:bg-yellow-600"
+            onClick={() => setSelectedVideoId(null)}
+          >
+            Back to Videos
+          </button>
+        </div>
+      ) : (
+        <>
+          {/* YouTube Kids Button (optional) */}
+          <button
+            className="w-full px-4 py-1 mb-4 text-sm font-bold text-white bg-red-500 rounded-full shadow-md hover:bg-red-600"
+            onClick={openYouTubeKids}
+          >
+            Go to YouTube Kids
+          </button>
+
+          {/* Video Results */}
+          <div className="flex-1 overflow-y-auto">
+            {isLoading ? (
+              <p className="text-sm font-bold text-center text-purple-800">Loading videos...</p>
+            ) : error ? (
+              <p className="text-sm font-bold text-center text-red-600">{error}</p>
+            ) : videoResults.length > 0 ? (
+              <div className="grid grid-cols-1 gap-2">
+                {videoResults.map((video) => (
+                  <div
+                    key={video.id.videoId}
+                    className="p-2 transition-transform bg-yellow-100 rounded-lg shadow-md cursor-pointer hover:scale-105"
+                    onClick={() => setSelectedVideoId(video.id.videoId)}
+                  >
+                    <img
+                      src={video.snippet.thumbnails.medium.url}
+                      alt={video.snippet.title}
+                      className="object-cover w-full h-16 rounded-md"
+                    />
+                    <h3 className="mt-1 text-xs font-bold text-purple-800 line-clamp-2">
+                      {video.snippet.title}
+                    </h3>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm font-bold text-center text-purple-800">
+                Search for videos to see results!
+              </p>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  </div>
+)}
+
+
       {/* Magic Button */}
-      <div className="absolute bottom-10 right-10">
+      <div
+        className="absolute bottom-10"
+        style={{
+          right: videoSectionOpen ? `${window.innerWidth * 0.25 + 40}px` : "2.5rem",
+        }}
+      >
         <button
           className="flex items-center justify-center w-16 h-16 transition-transform rounded-full shadow-xl bg-gradient-to-r from-purple-500 to-pink-500 animate-bounce hover:scale-110"
           onClick={toggleMagicMenu}
