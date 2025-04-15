@@ -1,12 +1,17 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import React from "react";
+import { useEffect, useRef, useState } from "react";
 import { RoughCanvas } from "roughjs/bin/canvas";
+import { useSelector } from "react-redux";
+import { Search, X, ArrowLeft, Youtube } from "lucide-react";
+import YouTube from "react-youtube";
+
 import {
   Pencil,
   Square,
   Circle,
-  Type,
+  Move,
   Trash2,
   Download,
   ZoomIn,
@@ -14,40 +19,76 @@ import {
   Undo,
   Redo,
   ImageIcon,
+  Minus,
+  Plus,
+  Type,
+  Palette,
+  Eraser,
 } from "lucide-react";
 
-// Cartoon figures for kids
+// Cartoon figures data
 const cartoonFigures = [
-  { id: "cat", name: "Kitty", src: "/placeholder.svg?height=100&width=100" },
-  { id: "dog", name: "Puppy", src: "/placeholder.svg?height=100&width=100" },
-  { id: "bird", name: "Birdie", src: "/placeholder.svg?height=100&width=100" },
+  {
+    id: "cartoon-1",
+    name: "Cartoon Cat",
+    src: "https://th.bing.com/th/id/OIP.DLVD0nvNcdOSWCj9ui22ZwHaGm?w=860&h=767&rs=1&pid=ImgDetMain",
+  },
+  {
+    id: "cartoon-2",
+    name: "Cartoon Dog",
+    src: "https://static.vecteezy.com/system/resources/previews/022/938/540/non_2x/cute-cat-line-art-for-drawing-free-vector.jpg",
+  },
+  {
+    id: "cartoon-3",
+    name: "Cartoon Bird",
+    src: "https://th.bing.com/th/id/OIP.CEG8SXa4gpQQSCvK-13wOQHaIg?rs=1&pid=ImgDetMain?height=100&width=100",
+  },
 ];
 
-// Bright colors for kids
-const kidColors = ["#FF0000", "#FF9900", "#FFFF00", "#33CC33", "#3366FF", "#9933FF", "#FF66CC", "#000000"];
-
-const ThirdBoard = () => {
+export default function InfiniteCanvas() {
+  const { userEmail, userPassword } = useSelector((state) => state.user);
+  console.log(userEmail, userPassword);
   const canvasRef = useRef(null);
   const roughCanvasRef = useRef(null);
-  const textInputRef = useRef(null);
-
   const [elements, setElements] = useState([]);
+  const [action, setAction] = useState("none");
   const [tool, setTool] = useState("pencil");
   const [selectedElement, setSelectedElement] = useState(null);
-  const [color, setColor] = useState("#FF0000");
-  const [strokeWidth, setStrokeWidth] = useState(5);
+  const [strokeColor, setStrokeColor] = useState("#FF0000");
+  const [fillColor, setFillColor] = useState("");
+  const [strokeWidth, setStrokeWidth] = useState(2);
+  const [textSize, setTextSize] = useState(16);
   const [history, setHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const [startPanMousePosition, setStartPanMousePosition] = useState({ x: 0, y: 0 });
   const [scale, setScale] = useState(1);
-  const [isPanning, setIsPanning] = useState(false);
-  const [startPanPosition, setStartPanPosition] = useState({ x: 0, y: 0 });
-  const [showCartoonMenu, setShowCartoonMenu] = useState(false);
+  const [cartoonMenuOpen, setCartoonMenuOpen] = useState(false);
   const [selectedCartoon, setSelectedCartoon] = useState(null);
   const [cartoonImages, setCartoonImages] = useState({});
-  const [textInput, setTextInput] = useState("");
-  const [showTextInput, setShowTextInput] = useState(false);
-  const [textPosition, setTextPosition] = useState({ x: 0, y: 0 });
+  const [magicMenuOpen, setMagicMenuOpen] = useState(false);
+  const [drawingId, setDrawingId] = useState(null);
+  const [pageColor, setPageColor] = useState("");
+  const [videoSectionOpen, setVideoSectionOpen] = useState(false);
+  const [videoSearchQuery, setVideoSearchQuery] = useState("");
+  const [videoResults, setVideoResults] = useState([]);
+  const [selectedVideoId, setSelectedVideoId] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  // YouTube player options
+  const playerOptions = {
+    height: "100%",
+    width: "100%",
+    playerVars: {
+      autoplay: 0,
+      controls: 1,
+      modestbranding: 1,
+      rel: 0,
+      fs: 1,
+      origin: window.location.origin,
+    },
+  };
 
   // Load cartoon images
   useEffect(() => {
@@ -61,49 +102,101 @@ const ThirdBoard = () => {
     setCartoonImages(images);
   }, []);
 
-  // Initialize canvas
+  // Initialize rough canvas
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (canvas) {
-      roughCanvasRef.current = new RoughCanvas(canvas);
-      const resizeCanvas = () => {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight - 120; // Space for toolbar
-      };
-      resizeCanvas();
-      window.addEventListener("resize", resizeCanvas);
-      redrawCanvas();
-      return () => window.removeEventListener("resize", resizeCanvas);
+    if (canvasRef.current) {
+      roughCanvasRef.current = new RoughCanvas(canvasRef.current);
     }
   }, []);
 
-  // Redraw when elements, scale, or pan change
+  // Resize canvas dynamically
+  useEffect(() => {
+    const resizeCanvas = () => {
+      if (canvasRef.current) {
+        canvasRef.current.width = videoSectionOpen ? window.innerWidth * 0.75 : window.innerWidth;
+        canvasRef.current.height = window.innerHeight;
+        redrawCanvas();
+      }
+    };
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
+    return () => window.removeEventListener("resize", resizeCanvas);
+  }, [videoSectionOpen]);
+
+  // Redraw canvas when elements or video section changes
   useEffect(() => {
     redrawCanvas();
-  }, [elements, scale, panOffset]);
+  }, [elements, panOffset, scale, pageColor, videoSectionOpen, videoResults, selectedVideoId]);
 
-  // Focus text input
-  useEffect(() => {
-    if (showTextInput && textInputRef.current) textInputRef.current.focus();
-  }, [showTextInput]);
+  // Handle video search using YouTube API
+  const handleVideoSearch = async (query) => {
+    if (!query) return;
+    try {
+      setIsLoading(true);
+      setError(null);
+      const apiKey = import.meta.env.VITE_YOUTUBE_API_KEY || "YOUR_YOUTUBE_API_KEY"; // Replace with your API key
+      const response = await fetch(
+        `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=50&q=${encodeURIComponent(
+          query
+        )}&type=video&safeSearch=strict&key=${apiKey}`
+      );
+      const data = await response.json();
+      if (response.ok) {
+        const videos = data.items.map((item) => ({
+          id: { videoId: item.id.videoId },
+          snippet: {
+            title: item.snippet.title,
+            thumbnails: {
+              medium: { url: item.snippet.thumbnails.medium.url },
+            },
+          },
+        }));
+        setVideoResults(videos.slice(0, 50));
+      } else {
+        throw new Error(data.error?.message || "Failed to fetch videos");
+      }
+    } catch (err) {
+      console.error("Error fetching videos:", err);
+      setError("Oops! Couldn't load videos. Try again later.");
+      setVideoResults([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-  // Generate unique ID
+  // Open YouTube Kids
+  const openYouTubeKids = () => {
+    window.open("https://www.youtubekids.com/", "_blank");
+  };
+
+  // Toggle video section
+  const toggleVideoSection = () => {
+    setVideoSectionOpen(!videoSectionOpen);
+    setVideoSearchQuery("");
+    setVideoResults([]);
+    setSelectedVideoId(null);
+    setError(null);
+  };
+
+  // Generate a unique ID
   const generateId = () => Math.random().toString(36).substr(2, 9);
 
-  // Update history
+  // Add to history when elements change
   const updateHistory = (newElements) => {
     const newHistory = history.slice(0, historyIndex + 1);
     setHistory([...newHistory, [...newElements]]);
     setHistoryIndex(newHistory.length);
   };
 
-  // Undo/Redo
+  // Undo action
   const undo = () => {
     if (historyIndex > 0) {
       setHistoryIndex(historyIndex - 1);
       setElements([...history[historyIndex - 1]]);
     }
   };
+
+  // Redo action
   const redo = () => {
     if (historyIndex < history.length - 1) {
       setHistoryIndex(historyIndex + 1);
@@ -115,422 +208,977 @@ const ThirdBoard = () => {
   const getElementAtPosition = (x, y) => {
     const adjustedX = (x - panOffset.x) / scale;
     const adjustedY = (y - panOffset.y) / scale;
-
-    return elements
-      .slice()
-      .reverse()
-      .find((element) => {
-        if (element.type === "rectangle" || element.type === "circle") {
-          const { x1, y1, x2, y2 } = element;
-          const minX = Math.min(x1, x2);
-          const maxX = Math.max(x1, x2);
-          const minY = Math.min(y1, y2);
-          const maxY = Math.max(y1, y2);
-          return adjustedX >= minX && adjustedX <= maxX && adjustedY >= minY && adjustedY <= maxY;
-        } else if (element.type === "cartoon") {
-          return (
-            adjustedX >= element.x &&
-            adjustedX <= element.x + element.width &&
-            adjustedY >= element.y &&
-            adjustedY <= element.y + element.height
-          );
-        } else if (element.type === "text") {
-          const ctx = canvasRef.current.getContext("2d");
-          ctx.font = `${element.fontSize || 24}px Comic Sans MS`;
-          const textWidth = ctx.measureText(element.text).width;
-          return (
-            adjustedX >= element.x &&
-            adjustedX <= element.x + textWidth &&
-            adjustedY >= element.y - (element.fontSize || 24) &&
-            adjustedY <= element.y
-          );
+    for (let i = elements.length - 1; i >= 0; i--) {
+      const element = elements[i];
+      if (element.type === "cartoon") {
+        const [x1, y1] = [element.points[0].x, element.points[0].y];
+        const width = element.width || 100;
+        const height = element.height || 100;
+        if (adjustedX >= x1 && adjustedX <= x1 + width && adjustedY >= y1 && adjustedY <= y1 + height) {
+          return { element, position: "inside" };
         }
-        return false; // Skip pencil for eraser simplicity
-      });
-  };
-
-  // Create rough element
-  const createElement = (id, x1, y1, x2, y2, type) => {
-    const roughOptions = { strokeWidth, stroke: color, roughness: 2 };
-    let roughElement = null;
-    if (roughCanvasRef.current) {
-      if (type === "rectangle") {
-        roughElement = roughCanvasRef.current.generator.rectangle(
-          x1,
-          y1,
-          x2 - x1,
-          y2 - y1,
-          roughOptions
-        );
-      } else if (type === "circle") {
+      } else if (element.type === "rectangle") {
+        const [x1, y1] = [element.points[0].x, element.points[0].y];
+        const [x2, y2] = [element.points[1].x, element.points[1].y];
+        if (
+          adjustedX >= Math.min(x1, x2) &&
+          adjustedX <= Math.max(x1, x2) &&
+          adjustedY >= Math.min(y1, y2) &&
+          adjustedY <= Math.max(y1, y2)
+        ) {
+          return { element, position: "inside" };
+        }
+      } else if (element.type === "circle") {
+        const [x1, y1] = [element.points[0].x, element.points[0].y];
+        const [x2, y2] = [element.points[1].x, element.points[1].y];
         const radius = Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
-        roughElement = roughCanvasRef.current.generator.circle(x1, y1, radius * 2, roughOptions);
+        if (Math.sqrt(Math.pow(adjustedX - x1, 2) + Math.pow(adjustedY - y1, 2)) <= radius) {
+          return { element, position: "inside" };
+        }
+      } else if (element.type === "pencil") {
+        for (let i = 0; i < element.points.length - 1; i++) {
+          const p1 = element.points[i];
+          const p2 = element.points[i + 1];
+          const distance = distanceToLineSegment(adjustedX, adjustedY, p1.x, p1.y, p2.x, p2.y);
+          if (distance < 10) return { element, position: "inside" };
+        }
+      } else if (element.type === "text") {
+        const [x1, y1] = [element.points[0].x, element.points[0].y];
+        const textWidth = element.text.length * (element.textSize / 2);
+        const textHeight = element.textSize;
+        if (
+          adjustedX >= x1 &&
+          adjustedX <= x1 + textWidth &&
+          adjustedY >= y1 - textHeight &&
+          adjustedY <= y1
+        ) {
+          return { element, position: "inside" };
+        }
       }
     }
-    return { id, type, roughElement, x1, y1, x2, y2, color, strokeWidth };
+    return null;
   };
 
-  // Mouse events
-  const handleMouseDown = (event) => {
-    const { clientX, clientY, button } = event;
-    const adjustedX = (clientX - panOffset.x) / scale;
-    const adjustedY = (clientY - panOffset.y) / scale;
+  const distanceToLineSegment = (x, y, x1, y1, x2, y2) => {
+    const A = x - x1;
+    const B = y - y1;
+    const C = x2 - x1;
+    const D = y2 - y1;
+    const dot = A * C + B * D;
+    const lenSq = C * C + D * D;
+    let param = -1;
+    if (lenSq !== 0) param = dot / lenSq;
+    let xx, yy;
+    if (param < 0) {
+      xx = x1;
+      yy = y1;
+    } else if (param > 1) {
+      xx = x2;
+      yy = y2;
+    } else {
+      xx = x1 + param * C;
+      yy = y1 + param * D;
+    }
+    const dx = x - xx;
+    const dy = y - yy;
+    return Math.sqrt(dx * dx + dy * dy);
+  };
 
-    if (button === 1 || (event.altKey && button === 0)) { // Middle click or Alt + left click for panning
-      setIsPanning(true);
-      setStartPanPosition({ x: clientX, y: clientY });
+  // Create element
+  const createElement = (id, x1, y1, x2, y2, type, cartoonType, text) => {
+    const roughOptions = {
+      seed: Math.floor(Math.random() * 2000),
+      strokeWidth,
+      stroke: strokeColor,
+      roughness: 1.5,
+    };
+    if (fillColor) {
+      roughOptions.fill = fillColor;
+      roughOptions.fillStyle = "solid";
+    }
+    let roughElement = null;
+    if (roughCanvasRef.current && ["rectangle", "circle"].includes(type)) {
+      switch (type) {
+        case "rectangle":
+          roughElement = roughCanvasRef.current.generator.rectangle(x1, y1, x2 - x1, y2 - y1, roughOptions);
+          break;
+        case "circle":
+          const radius = Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+          roughElement = roughCanvasRef.current.generator.circle(x1, y1, radius * 2, roughOptions);
+          break;
+      }
+    }
+    return {
+      id,
+      type,
+      roughElement,
+      points: [
+        { x: x1, y: y1 },
+        { x: x2, y: y2 },
+      ],
+      strokeColor,
+      strokeWidth,
+      fillColor,
+      cartoonType,
+      text: type === "text" ? text : undefined,
+      textSize: type === "text" ? textSize : undefined,
+      width: type === "cartoon" ? 100 : undefined,
+      height: type === "cartoon" ? 100 : undefined,
+      seed: roughOptions.seed,
+    };
+  };
+
+  // Regenerate elements from saved data
+  const regenerateElements = (savedElements) => {
+    return savedElements.map((el) => {
+      if (["rectangle", "circle"].includes(el.type) && roughCanvasRef.current) {
+        const roughOptions = {
+          seed: el.seed,
+          strokeWidth: el.strokeWidth,
+          stroke: el.strokeColor,
+          roughness: 1.5,
+        };
+        if (el.fillColor) {
+          roughOptions.fill = el.fillColor;
+          roughOptions.fillStyle = "solid";
+        }
+        let roughElement = null;
+        if (el.type === "rectangle") {
+          roughElement = roughCanvasRef.current.generator.rectangle(
+            el.points[0].x,
+            el.points[0].y,
+            el.points[1].x - el.points[0].x,
+            el.points[1].y - el.points[0].y,
+            roughOptions
+          );
+        } else if (el.type === "circle") {
+          const radius = Math.sqrt(
+            Math.pow(el.points[1].x - el.points[0].x, 2) + Math.pow(el.points[1].y - el.points[0].y, 2)
+          );
+          roughElement = roughCanvasRef.current.generator.circle(
+            el.points[0].x,
+            el.points[0].y,
+            radius * 2,
+            roughOptions
+          );
+        }
+        return { ...el, roughElement };
+      }
+      return el;
+    });
+  };
+
+  // Save drawing to database
+  const saveToDatabase = async () => {
+    try {
+      const drawingData = {
+        elements: elements.map(({ roughElement, ...rest }) => rest),
+        name: `Drawing-${Date.now()}`,
+      };
+      let url = "http://localhost:3000/api/drawings";
+      let method = "POST";
+      if (drawingId) {
+        url = `http://localhost:3000/api/drawings/${drawingId}`;
+        method = "PUT";
+      }
+      const response = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          drawingData,
+          userEmail,
+          userPassword,
+        }),
+      });
+      const result = await response.json();
+      if (response.ok) {
+        if (!drawingId) setDrawingId(result.id);
+        alert("Drawing saved successfully!");
+      } else {
+        throw new Error(result.error || "Failed to save drawing");
+      }
+    } catch (error) {
+      console.error("Error saving drawing:", error);
+      alert("Oops! Couldn’t save your drawing.");
+    }
+  };
+
+  // Load drawing from database
+  const loadFromDatabase = async (id = "67f95d1452fbc68703c12ed6") => {
+    try {
+      const response = await fetch(`http://localhost:3000/api/drawings/${id}/${userEmail}`);
+      const result = await response.json();
+      if (response.ok) {
+        const loadedElements = regenerateElements(result.elements);
+        setElements(loadedElements);
+        setHistory([loadedElements]);
+        setHistoryIndex(0);
+        setDrawingId(result.id);
+        alert("Drawing loaded successfully!");
+      } else {
+        throw new Error(result.error || "Failed to load drawing");
+      }
+    } catch (error) {
+      console.error("Error loading drawing:", error);
+      alert("Oops! Couldn’t load the drawing.");
+    }
+  };
+
+  // Handle mouse down
+  const handleMouseDown = (event) => {
+    if (event.button !== 0) return;
+    const { clientX, clientY } = event;
+    if (tool === "move") {
+      setAction("moving");
+      setStartPanMousePosition({ x: clientX, y: clientY });
       return;
     }
-
+    const adjustedX = (clientX - panOffset.x) / scale;
+    const adjustedY = (clientY - panOffset.y) / scale;
+    const elementAtPosition = getElementAtPosition(clientX, clientY);
     if (tool === "eraser") {
-      const element = getElementAtPosition(clientX, clientY);
-      if (element) {
+      setAction("erasing");
+      if (elementAtPosition) {
+        const { element } = elementAtPosition;
         setElements((prev) => prev.filter((el) => el.id !== element.id));
         updateHistory(elements.filter((el) => el.id !== element.id));
       }
       return;
     }
-
+    if (elementAtPosition) {
+      const { element } = elementAtPosition;
+      setSelectedElement(element);
+      setAction("moving");
+      return;
+    }
+    setAction("drawing");
     if (tool === "pencil") {
       const newElement = {
         id: generateId(),
         type: "pencil",
         points: [{ x: adjustedX, y: adjustedY }],
-        color,
+        strokeColor,
         strokeWidth,
       };
       setElements((prev) => [...prev, newElement]);
       setSelectedElement(newElement);
-    } else if (tool === "rectangle" || tool === "circle") {
+    } else if (tool === "cartoon" && selectedCartoon) {
+      const newElement = createElement(
+        generateId(),
+        adjustedX,
+        adjustedY,
+        adjustedX + 100,
+        adjustedY + 100,
+        "cartoon",
+        selectedCartoon
+      );
+      setElements((prev) => [...prev, newElement]);
+      setSelectedElement(newElement);
+      updateHistory([...elements, newElement]);
+    } else if (tool === "text") {
+      const text = prompt("Enter your text:");
+      if (text) {
+        const newElement = createElement(generateId(), adjustedX, adjustedY, adjustedX, adjustedY, "text", null, text);
+        setElements((prev) => [...prev, newElement]);
+        setSelectedElement(newElement);
+        updateHistory([...elements, newElement]);
+      }
+      setAction("none");
+    } else {
       const id = generateId();
       const newElement = createElement(id, adjustedX, adjustedY, adjustedX, adjustedY, tool);
       setElements((prev) => [...prev, newElement]);
       setSelectedElement(newElement);
-    } else if (tool === "text") {
-      setTextPosition({ x: adjustedX, y: adjustedY });
-      setShowTextInput(true);
-    } else if (tool === "cartoon" && selectedCartoon) {
-      const newElement = {
-        id: generateId(),
-        type: "cartoon",
-        cartoonType: selectedCartoon,
-        x: adjustedX,
-        y: adjustedY,
-        width: 100,
-        height: 100,
-      };
-      setElements((prev) => [...prev, newElement]);
-      updateHistory([...elements, newElement]);
     }
   };
 
+  // Handle mouse move
   const handleMouseMove = (event) => {
     const { clientX, clientY } = event;
     const adjustedX = (clientX - panOffset.x) / scale;
     const adjustedY = (clientY - panOffset.y) / scale;
-
-    if (isPanning) {
-      const dx = clientX - startPanPosition.x;
-      const dy = clientY - startPanPosition.y;
-      setPanOffset({ x: panOffset.x + dx, y: panOffset.y + dy });
-      setStartPanPosition({ x: clientX, y: clientY });
+    if (action === "moving" && tool === "move") {
+      const dx = clientX - startPanMousePosition.x;
+      const dy = clientY - startPanMousePosition.y;
+      setPanOffset((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
+      setStartPanMousePosition({ x: clientX, y: clientY });
       return;
     }
-
-    if (selectedElement) {
-      if (tool === "pencil") {
-        const newPoints = [...selectedElement.points, { x: adjustedX, y: adjustedY }];
-        const updatedElement = { ...selectedElement, points: newPoints };
-        setElements((prev) =>
-          prev.map((el) => (el.id === selectedElement.id ? updatedElement : el))
-        );
-        setSelectedElement(updatedElement);
-      } else if (tool === "rectangle" || tool === "circle") {
-        const updatedElement = createElement(
-          selectedElement.id,
-          selectedElement.x1,
-          selectedElement.y1,
-          adjustedX,
-          adjustedY,
-          tool
-        );
-        setElements((prev) =>
-          prev.map((el) => (el.id === selectedElement.id ? updatedElement : el))
-        );
-        setSelectedElement(updatedElement);
-      }
-    } else if (tool === "eraser") {
-      const element = getElementAtPosition(clientX, clientY);
-      if (element) {
+    if (action === "erasing" && tool === "eraser") {
+      const elementAtPosition = getElementAtPosition(clientX, clientY);
+      if (elementAtPosition) {
+        const { element } = elementAtPosition;
         setElements((prev) => prev.filter((el) => el.id !== element.id));
       }
+      return;
+    }
+    if (action === "drawing" && selectedElement) {
+      if (selectedElement.type === "pencil") {
+        const newPoints = [...selectedElement.points, { x: adjustedX, y: adjustedY }];
+        const updatedElement = { ...selectedElement, points: newPoints };
+        setElements((prev) => prev.map((el) => (el.id === selectedElement.id ? updatedElement : el)));
+        setSelectedElement(updatedElement);
+      } else if (["rectangle", "circle"].includes(selectedElement.type)) {
+        const { id, type, points } = selectedElement;
+        const updatedElement = createElement(id, points[0].x, points[0].y, adjustedX, adjustedY, type);
+        setElements((prev) => prev.map((el) => (el.id === selectedElement.id ? updatedElement : el)));
+        setSelectedElement(updatedElement);
+      }
+    } else if (action === "moving" && selectedElement) {
+      if (selectedElement.type === "pencil") {
+        const dx = adjustedX - selectedElement.points[0].x;
+        const dy = adjustedY - selectedElement.points[0].y;
+        const newPoints = selectedElement.points.map((point) => ({
+          x: point.x + dx,
+          y: point.y + dy,
+        }));
+        const updatedElement = { ...selectedElement, points: newPoints };
+        setElements((prev) => prev.map((el) => (el.id === selectedElement.id ? updatedElement : el)));
+        setSelectedElement(updatedElement);
+      } else if (["rectangle", "circle", "cartoon", "text"].includes(selectedElement.type)) {
+        const dx = adjustedX - selectedElement.points[0].x;
+        const dy = adjustedY - selectedElement.points[0].y;
+        let updatedElement;
+        if (selectedElement.type === "cartoon") {
+          updatedElement = {
+            ...selectedElement,
+            points: [
+              { x: adjustedX, y: adjustedY },
+              { x: adjustedX + (selectedElement.width || 100), y: adjustedY + (selectedElement.height || 100) },
+            ],
+          };
+        } else if (selectedElement.type === "text") {
+          updatedElement = {
+            ...selectedElement,
+            points: [{ x: adjustedX, y: adjustedY }, { x: adjustedX, y: adjustedY }],
+          };
+        } else {
+          const width = selectedElement.points[1].x - selectedElement.points[0].x;
+          const height = selectedElement.points[1].y - selectedElement.points[0].y;
+          updatedElement = createElement(
+            selectedElement.id,
+            adjustedX,
+            adjustedY,
+            adjustedX + width,
+            adjustedY + height,
+            selectedElement.type
+          );
+        }
+        setElements((prev) => prev.map((el) => (el.id === selectedElement.id ? updatedElement : el)));
+        setSelectedElement(updatedElement);
+      }
     }
   };
 
+  // Handle mouse up
   const handleMouseUp = () => {
-    if (selectedElement) {
+    if (action === "drawing" || action === "moving") {
+      if (selectedElement) updateHistory([...elements]);
+    } else if (action === "erasing") {
       updateHistory([...elements]);
-      setSelectedElement(null);
     }
-    setIsPanning(false);
+    setAction("none");
+    setSelectedElement(null);
   };
 
-  // Touch events for mobile
-  const handleTouchStart = (e) => handleMouseDown({ clientX: e.touches[0].clientX, clientY: e.touches[0].clientY, button: 0 });
-  const handleTouchMove = (e) => handleMouseMove({ clientX: e.touches[0].clientX, clientY: e.touches[0].clientY });
+  // Handle touch events
+  const handleTouchStart = (event) => {
+    if (event.touches.length === 1) {
+      const touch = event.touches[0];
+      handleMouseDown({ clientX: touch.clientX, clientY: touch.clientY, button: 0 });
+    }
+  };
+
+  const handleTouchMove = (event) => {
+    if (event.touches.length === 1) {
+      const touch = event.touches[0];
+      handleMouseMove({ clientX: touch.clientX, clientY: touch.clientY });
+    }
+  };
+
   const handleTouchEnd = () => handleMouseUp();
 
-  // Wheel event for zooming
-  const handleWheel = (event) => {
-    event.preventDefault();
-    const zoomFactor = event.deltaY > 0 ? 0.9 : 1.1;
-    const newScale = Math.min(Math.max(scale * zoomFactor, 0.1), 5);
-    const mouseX = event.clientX;
-    const mouseY = event.clientY;
-    const newPanX = mouseX - (mouseX - panOffset.x) * (newScale / scale);
-    const newPanY = mouseY - (mouseY - panOffset.y) * (newScale / scale);
-    setScale(newScale);
-    setPanOffset({ x: newPanX, y: newPanY });
-  };
-
-  // Add text
-  const addText = () => {
-    if (!textInput.trim()) return;
-    const newElement = {
-      id: generateId(),
-      type: "text",
-      text: textInput,
-      x: textPosition.x,
-      y: textPosition.y,
-      color,
-      fontSize: 24,
-    };
-    setElements((prev) => [...prev, newElement]);
-    updateHistory([...elements, newElement]);
-    setTextInput("");
-    setShowTextInput(false);
-  };
-
-  // Redraw canvas
+  // Redraw the canvas
   const redrawCanvas = () => {
     const canvas = canvasRef.current;
-    if (!canvas || !roughCanvasRef.current) return;
+    if (!canvas) return;
+    const context = canvas.getContext("2d");
+    if (!context || !roughCanvasRef.current) return;
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    context.save();
+    context.translate(panOffset.x, panOffset.y);
+    context.scale(scale, scale);
 
-    const ctx = canvas.getContext("2d");
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = "#FFF";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    ctx.save();
-    ctx.translate(panOffset.x, panOffset.y);
-    ctx.scale(scale, scale);
-
+    // Draw elements
     elements.forEach((element) => {
+      context.globalAlpha = 1;
       if (element.type === "pencil") {
-        ctx.beginPath();
-        ctx.moveTo(element.points[0].x, element.points[0].y);
-        element.points.forEach((point) => ctx.lineTo(point.x, point.y));
-        ctx.strokeStyle = element.color;
-        ctx.lineWidth = element.strokeWidth;
-        ctx.lineCap = "round";
-        ctx.lineJoin = "round";
-        ctx.stroke();
-      } else if (element.type === "rectangle" || element.type === "circle") {
-        roughCanvasRef.current.draw(element.roughElement);
-      } else if (element.type === "text") {
-        ctx.font = `${element.fontSize}px Comic Sans MS`;
-        ctx.fillStyle = element.color;
-        ctx.fillText(element.text, element.x, element.y);
-      } else if (element.type === "cartoon") {
+        context.beginPath();
+        context.moveTo(element.points[0].x, element.points[0].y);
+        element.points.forEach((point) => context.lineTo(point.x, point.y));
+        context.strokeStyle = element.strokeColor;
+        context.lineWidth = element.strokeWidth;
+        context.lineCap = "round";
+        context.lineJoin = "round";
+        context.stroke();
+      } else if (element.type === "cartoon" && element.cartoonType) {
         const img = cartoonImages[element.cartoonType];
-        if (img) ctx.drawImage(img, element.x, element.y, element.width, element.height);
+        if (img) {
+          const x = element.points[0].x;
+          const y = element.points[0].y;
+          const width = element.width || 100;
+          const height = element.height || 100;
+          context.drawImage(img, x, y, width, height);
+          if (selectedElement && selectedElement.id === element.id) {
+            context.strokeStyle = "#FFD700";
+            context.lineWidth = 3;
+            context.strokeRect(x, y, width, height);
+          }
+        }
+      } else if (element.type === "text" && element.text) {
+        context.font = `${element.textSize}px Comic Sans MS`;
+        context.fillStyle = element.strokeColor;
+        context.fillText(element.text, element.points[0].x, element.points[0].y);
+        if (selectedElement && selectedElement.id === element.id) {
+          context.strokeStyle = "#FFD700";
+          context.lineWidth = 3;
+          context.strokeRect(
+            element.points[0].x,
+            element.points[0].y - element.textSize,
+            element.text.length * (element.textSize / 2),
+            element.textSize
+          );
+        }
+      } else if (element.roughElement) {
+        roughCanvasRef.current.draw(element.roughElement);
       }
     });
 
-    ctx.restore();
+    // Draw video section on canvas if open
+    if (videoSectionOpen) {
+      const videoSectionWidth = window.innerWidth * 0.25;
+      const videoSectionHeight = window.innerHeight * 0.25;
+      const videoSectionX = (window.innerWidth * 0.75) / scale - panOffset.x / scale;
+      const videoSectionY = (window.innerHeight - videoSectionHeight) / scale - panOffset.y / scale;
+
+      // Draw background
+      context.fillStyle = "rgba(255, 255, 255, 0.95)";
+      context.fillRect(videoSectionX, videoSectionY, videoSectionWidth / scale, videoSectionHeight / scale);
+      context.strokeStyle = "#FFD700";
+      context.lineWidth = 4 / scale;
+      context.strokeRect(videoSectionX, videoSectionY, videoSectionWidth / scale, videoSectionHeight / scale);
+
+      // Draw title
+      context.font = `${20 / scale}px Comic Sans MS`;
+      context.fillStyle = "#6B21A8";
+      context.fillText("Fun Videos for Kids!", videoSectionX + 10 / scale, videoSectionY + 30 / scale);
+    }
+
+    context.restore();
   };
 
-  // Zoom and reset
-  const zoomIn = () => setScale((prev) => Math.min(prev * 1.2, 5));
-  const zoomOut = () => setScale((prev) => Math.max(prev / 1.2, 0.1));
+  // Zoom in
+  const zoomIn = () => setScale((prevScale) => Math.min(prevScale * 1.2, 5));
+
+  // Zoom out
+  const zoomOut = () => setScale((prevScale) => Math.max(prevScale / 1.2, 0.1));
+
+  // Reset zoom and pan
   const resetView = () => {
     setScale(1);
     setPanOffset({ x: 0, y: 0 });
   };
 
-  // Clear and save
+  // Clear canvas
   const clearCanvas = () => {
     setElements([]);
     updateHistory([]);
+    setDrawingId(null);
   };
-  const saveAsImage = () => {
+
+  // Save canvas as image
+  const saveAsImage = (filename) => {
     const canvas = canvasRef.current;
+    if (!canvas) return;
+    const tempCanvas = document.createElement("canvas");
+    tempCanvas.width = canvas.width;
+    tempCanvas.height = canvas.height;
+    const tempContext = tempCanvas.getContext("2d");
+    if (!tempContext) return;
+    tempContext.fillStyle = pageColor || "white";
+    tempContext.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+    tempContext.drawImage(canvas, 0, 0);
     const link = document.createElement("a");
-    link.download = "drawing.png";
-    link.href = canvas.toDataURL("image/png");
+    link.download = filename || "infinite-canvas-drawing.png";
+    link.href = tempCanvas.toDataURL("image/png");
     link.click();
   };
 
-  // Toolbar helpers
-  const increaseStrokeWidth = () => setStrokeWidth((prev) => Math.min(prev + 2, 10));
-  const decreaseStrokeWidth = () => setStrokeWidth((prev) => Math.max(prev - 2, 2));
+  // Increase stroke width
+  const increaseStrokeWidth = () => setStrokeWidth((prev) => Math.min(prev + 1, 10));
+
+  // Decrease stroke width
+  const decreaseStrokeWidth = () => setStrokeWidth((prev) => Math.max(prev - 1, 1));
+
+  // Increase text size
+  const increaseTextSize = () => setTextSize((prev) => Math.min(prev + 2, 50));
+
+  // Decrease text size
+  const decreaseTextSize = () => setTextSize((prev) => Math.max(prev - 2, 10));
+
+  // Toggle cartoon menu
+  const toggleCartoonMenu = () => setCartoonMenuOpen(!cartoonMenuOpen);
+
+  // Select cartoon
+  const selectCartoon = (cartoonId) => {
+    setSelectedCartoon(cartoonId);
+    setTool("cartoon");
+    setCartoonMenuOpen(false);
+  };
+
+  // Toggle magic menu
+  const toggleMagicMenu = () => setMagicMenuOpen(!magicMenuOpen);
+
+  // Magic button options with screenshot
+  const handleMagicOption = (option) => {
+    const timestamp = Date.now();
+    let filename;
+    switch (option) {
+      case "Make Image":
+        filename = `image-${timestamp}.png`;
+        break;
+      case "Make Video":
+        filename = `video-screenshot-${timestamp}.png`;
+        break;
+      case "Make Animation":
+        filename = `animation-screenshot-${timestamp}.png`;
+        break;
+      case "Audio":
+        filename = `audio-screenshot-${timestamp}.png`;
+        break;
+      default:
+        filename = `screenshot-${timestamp}.png`;
+    }
+    saveAsImage(filename);
+    setMagicMenuOpen(false);
+    console.log(`Selected: ${option} - Screenshot saved as ${filename}`);
+  };
+
+  // Prevent scroll propagation
+  const handleVideoSectionScroll = (e) => {
+    e.stopPropagation();
+  };
 
   return (
-    <div className="relative w-full h-screen overflow-hidden bg-gray-100">
-      {/* Toolbar */}
-      <div className="flex flex-wrap justify-center gap-3 p-4 bg-yellow-200 shadow-lg">
-        <button
-          className={`p-4 rounded-full ${tool === "pencil" ? "bg-green-400" : "bg-white"}`}
-          onClick={() => setTool("pencil")}
-        >
-          <Pencil size={32} />
-          <span className="block text-sm font-bold">Draw</span>
-        </button>
-        <button
-          className={`p-4 rounded-full ${tool === "eraser" ? "bg-red-400" : "bg-white"}`}
-          onClick={() => setTool("eraser")}
-        >
-          <Trash2 size={32} color={tool === "eraser" ? "#fff" : "#333"} />
-          <span className="block text-sm font-bold">Erase</span>
-        </button>
-        <button
-          className={`p-4 rounded-full ${tool === "circle" ? "bg-blue-400" : "bg-white"}`}
-          onClick={() => setTool("circle")}
-        >
-          <Circle size={32} />
-          <span className="block text-sm font-bold">Circle</span>
-        </button>
-        <button
-          className={`p-4 rounded-full ${tool === "rectangle" ? "bg-purple-400" : "bg-white"}`}
-          onClick={() => setTool("rectangle")}
-        >
-          <Square size={32} />
-          <span className="block text-sm font-bold">Square</span>
-        </button>
-        <button
-          className={`p-4 rounded-full ${tool === "text" ? "bg-orange-400" : "bg-white"}`}
-          onClick={() => setTool("text")}
-        >
-          <Type size={32} />
-          <span className="block text-sm font-bold">Words</span>
-        </button>
-        <button
-          className={`p-4 rounded-full ${tool === "cartoon" ? "bg-pink-400" : "bg-white"}`}
-          onClick={() => setShowCartoonMenu(true)}
-        >
-          <ImageIcon size={32} />
-          <span className="block text-sm font-bold">Stickers</span>
-        </button>
-        <div className="flex items-center p-2 bg-white rounded-lg">
-          <button className="p-2 bg-blue-200 rounded-full" onClick={decreaseStrokeWidth}>-</button>
-          <span className="mx-2 text-lg font-bold">{strokeWidth}</span>
-          <button className="p-2 bg-blue-200 rounded-full" onClick={increaseStrokeWidth}>+</button>
-          <span className="ml-2 text-sm font-bold">Size</span>
-        </div>
-        <div className="grid grid-cols-4 gap-2 p-2 bg-white rounded-lg">
-          {kidColors.map((c) => (
-            <button
-              key={c}
-              className={`w-8 h-8 rounded-full border-2 ${color === c ? "border-black" : "border-gray-200"}`}
-              style={{ backgroundColor: c }}
-              onClick={() => setColor(c)}
-            />
-          ))}
-          <span className="col-span-4 text-sm font-bold text-center">Colors</span>
-        </div>
-        <button className="p-4 bg-white rounded-full" onClick={undo} disabled={historyIndex <= 0}>
-          <Undo size={32} color={historyIndex <= 0 ? "#ccc" : "#333"} />
-          <span className="block text-sm font-bold">Undo</span>
-        </button>
-        <button className="p-4 bg-white rounded-full" onClick={redo} disabled={historyIndex >= history.length - 1}>
-          <Redo size={32} color={historyIndex >= history.length - 1 ? "#ccc" : "#333"} />
-          <span className="block text-sm font-bold">Redo</span>
-        </button>
-        <button className="p-4 bg-white rounded-full" onClick={saveAsImage}>
-          <Download size={32} />
-          <span className="block text-sm font-bold">Save</span>
-        </button>
-        <button className="p-4 bg-red-400 rounded-full" onClick={clearCanvas}>
-          <Trash2 size={32} color="#fff" />
-          <span className="block text-sm font-bold">Clear</span>
-        </button>
-      </div>
-
+    <div
+      className="relative w-full h-screen overflow-hidden"
+      style={{
+        background: pageColor || "linear-gradient(to bottom right, #bfdbfe, #fbcfe8)",
+      }}
+    >
       {/* Canvas */}
-      <div className="flex-grow">
-        <canvas
-          ref={canvasRef}
-          className={`w-full h-full ${tool === "eraser" ? "cursor-pointer" : "cursor-crosshair"}`}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onWheel={handleWheel}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
+      <canvas
+        ref={canvasRef}
+        className="absolute top-0 left-0 touch-none"
+        style={{
+          width: videoSectionOpen ? `${window.innerWidth * 0.75}px` : "100%",
+          height: "100%",
+          cursor: tool === "move" ? "grab" : tool === "eraser" ? "crosshair" : "crosshair",
+        }}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      />
+
+      {/* Toolbar */}
+      <div
+        className="absolute flex items-center p-4 overflow-x-auto bg-yellow-300 shadow-2xl top-4 rounded-xl"
+        style={{
+          left: "1rem",
+          right: videoSectionOpen ? `${window.innerWidth * 0.25 + 16}px` : "1rem",
+        }}
+      >
+        <button
+          className={`p-3 rounded-full ${tool === "pencil" ? "bg-green-400" : "bg-white"} hover:bg-green-200 shadow-md`}
+          onClick={() => setTool("pencil")}
+          title="Pencil"
+        >
+          <Pencil size={28} color="#333" />
+          <span className="block text-xs font-bold text-purple-800">Draw</span>
+        </button>
+        <button
+          className={`p-3 rounded-full ${tool === "rectangle" ? "bg-purple-400" : "bg-white"} hover:bg-purple-200 shadow-md`}
+          onClick={() => setTool("rectangle")}
+          title="Rectangle"
+        >
+          <Square size={28} color="#333" />
+          <span className="block text-xs font-bold text-purple-800">Square</span>
+        </button>
+        <button
+          className={`p-3 rounded-full ${tool === "circle" ? "bg-blue-400" : "bg-white"} hover:bg-blue-200 shadow-md`}
+          onClick={() => setTool("circle")}
+          title="Circle"
+        >
+          <Circle size={28} color="#333" />
+          <span className="block text-xs font-bold text-purple-800">Circle</span>
+        </button>
+        <button
+          className={`p-3 rounded-full ${tool === "cartoon" ? "bg-pink-400" : "bg-white"} hover:bg-pink-200 shadow-md`}
+          onClick={toggleCartoonMenu}
+          title="Cartoon Figures"
+        >
+          <ImageIcon size={28} color="#333" />
+          <span className="block text-xs font-bold text-purple-800">Stickers</span>
+        </button>
+        <button
+          className={`p-3 rounded-full ${tool === "text" ? "bg-yellow-400" : "bg-white"} hover:bg-yellow-200 shadow-md`}
+          onClick={() => setTool("text")}
+          title="Text"
+        >
+          <Type size={28} color="#333" />
+          <span className="block text-xs font-bold text-purple-800">Text</span>
+        </button>
+        <button
+          className={`p-3 rounded-full ${tool === "eraser" ? "bg-red-400" : "bg-white"} hover:bg-red-200 shadow-md`}
+          onClick={() => setTool("eraser")}
+          title="Eraser"
+        >
+          <Eraser size={28} color="#333" />
+          <span className="block text-xs font-bold text-purple-800">Erase</span>
+        </button>
+        <button
+          className={`p-3 rounded-full ${tool === "move" ? "bg-orange-400" : "bg-white"} hover:bg-orange-200 shadow-md`}
+          onClick={() => setTool("move")}
+          title="Pan Canvas"
+        >
+          <Move size={28} color="#333" />
+          <span className="block text-xs font-bold text-purple-800">Move</span>
+        </button>
+        <div className="w-1 h-8 mx-2 bg-purple-500 rounded-full" />
+        <div className="flex items-center p-2 space-x-2 bg-white rounded-lg shadow-md">
+          <button
+            className="p-2 bg-blue-300 rounded-full hover:bg-blue-400"
+            onClick={decreaseStrokeWidth}
+            title="Decrease Stroke Width"
+          >
+            <Minus size={20} color="#fff" />
+          </button>
+          <span className="w-6 text-lg font-bold text-center text-purple-800">{strokeWidth}</span>
+          <button
+            className="p-2 bg-blue-300 rounded-full hover:bg-blue-400"
+            onClick={increaseStrokeWidth}
+            title="Increase Stroke Width"
+          >
+            <Plus size={20} color="#fff" />
+          </button>
+          <span className="ml-2 text-xs font-bold text-purple-800">Size</span>
+        </div>
+        <div className="flex items-center p-2 space-x-2 bg-white rounded-lg shadow-md">
+          <button
+            className="p-2 bg-blue-300 rounded-full hover:bg-blue-400"
+            onClick={decreaseTextSize}
+            title="Decrease Text Size"
+          >
+            <Minus size={20} color="#fff" />
+          </button>
+          <span className="w-6 text-lg font-bold text-center text-purple-800">{textSize}</span>
+          <button
+            className="p-2 bg-blue-300 rounded-full hover:bg-blue-400"
+            onClick={increaseTextSize}
+            title="Increase Text Size"
+          >
+            <Plus size={20} color="#fff" />
+          </button>
+          <span className="ml-2 text-xs font-bold text-purple-800">Text Size</span>
+        </div>
+        <div className="w-1 h-8 mx-2 bg-purple-500 rounded-full" />
+        <input
+          type="color"
+          value={strokeColor}
+          onChange={(e) => setStrokeColor(e.target.value)}
+          className="w-10 h-10 border-2 border-yellow-500 rounded-full shadow-md cursor-pointer"
+          title="Stroke Color"
         />
+        <input
+          type="color"
+          value={fillColor || "#ffffff"}
+          onChange={(e) => setFillColor(e.target.value === "#ffffff" ? "" : e.target.value)}
+          className="w-10 h-10 border-2 border-yellow-500 rounded-full shadow-md cursor-pointer"
+          title="Fill Color"
+        />
+        <input
+          type="color"
+          value={pageColor || "#ffffff"}
+          onChange={(e) => setPageColor(e.target.value === "#ffffff" ? "" : e.target.value)}
+          className="w-10 h-10 border-2 border-yellow-500 rounded-full shadow-md cursor-pointer"
+          title="Page Color"
+        />
+        <button
+          className="p-3 bg-white rounded-full shadow-md hover:bg-gray-200"
+          onClick={() => setPageColor("")}
+          title="Reset Page Color"
+        >
+          <Palette size={28} color="#333" />
+          <span className="block text-xs font-bold text-purple-800">Reset</span>
+        </button>
+        <div className="w-1 h-8 mx-2 bg-purple-500 rounded-full" />
+        
+        <button
+          className={`p-3 rounded-full ${videoSectionOpen ? "bg-teal-400" : "bg-white"} hover:bg-teal-200 shadow-md`}
+          onClick={toggleVideoSection}
+          title="Videos"
+        >
+          <Youtube size={28} color="#333" />
+          <span className="block text-xs font-bold text-purple-800">Videos</span>
+        </button>
+        <div className="w-1 h-8 mx-2 bg-purple-500 rounded-full" />
+        <button
+          className="p-3 bg-white rounded-full shadow-md hover:bg-gray-200"
+          onClick={undo}
+          title="Undo"
+          disabled={historyIndex <= 0}
+        >
+          <Undo size={28} color={historyIndex <= 0 ? "#ccc" : "#333"} />
+          <span className="block text-xs font-bold text-purple-800">Undo</span>
+        </button>
+        <button
+          className="p-3 bg-white rounded-full shadow-md hover:bg-gray-200"
+          onClick={redo}
+          title="Redo"
+          disabled={historyIndex >= history.length - 1}
+        >
+          <Redo size={28} color={historyIndex >= history.length - 1 ? "#ccc" : "#333"} />
+          <span className="block text-xs font-bold text-purple-800">Redo</span>
+        </button>
+        <div className="w-1 h-8 mx-2 bg-purple-500 rounded-full" />
+        <button
+          className="p-3 bg-white rounded-full shadow-md hover:bg-green-200"
+          onClick={zoomIn}
+          title="Zoom In"
+        >
+          <ZoomIn size={28} color="#333" />
+          <span className="block text-xs font-bold text-purple-800">Zoom In</span>
+        </button>
+        <button
+          className="p-3 bg-white rounded-full shadow-md hover:bg-green-200"
+          onClick={zoomOut}
+          title="Zoom Out"
+        >
+          <ZoomOut size={28} color="#333" />
+          <span className="block text-xs font-bold text-purple-800">Zoom Out</span>
+        </button>
+        <button
+          className="p-3 bg-white rounded-full shadow-md hover:bg-green-200"
+          onClick={resetView}
+          title="Reset View"
+        >
+          <span className="text-sm font-bold text-purple-800">Reset</span>
+        </button>
+        <div className="w-1 h-8 mx-2 bg-purple-500 rounded-full" />
+        <button
+          className="p-3 bg-red-400 rounded-full shadow-md hover:bg-red-500"
+          onClick={clearCanvas}
+          title="Clear Canvas"
+        >
+          <Trash2 size={28} color="#fff" />
+          <span className="block text-xs font-bold text-white">Clear</span>
+        </button>
+        <button
+          className="p-3 bg-green-400 rounded-full shadow-md hover:bg-green-500"
+          onClick={saveToDatabase}
+          title="Save to Database"
+        >
+          <Download size={28} color="#fff" />
+          <span className="block text-xs font-bold text-white">Save</span>
+        </button>
+        <button
+          className="p-3 bg-blue-400 rounded-full shadow-md hover:bg-blue-500"
+          onClick={() => loadFromDatabase("67f95d1452fbc68703c12ed6")}
+          title="Load from Database"
+        >
+          <span className="text-sm font-bold text-white">Load</span>
+        </button>
+      </div>
 
-        {/* Text Input */}
-        {showTextInput && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30">
-            <div className="p-6 bg-white rounded-lg shadow-xl">
-              <input
-                ref={textInputRef}
-                type="text"
-                value={textInput}
-                onChange={(e) => setTextInput(e.target.value)}
-                className="w-full p-3 text-lg border rounded-lg"
-                placeholder="Type something fun!"
-              />
-              <div className="flex gap-3 mt-3">
-                <button className="p-2 bg-gray-200 rounded-lg" onClick={() => setShowTextInput(false)}>
-                  Cancel
-                </button>
-                <button className="p-2 text-white bg-blue-400 rounded-lg" onClick={addText}>
-                  Add
-                </button>
+      {/* Cartoon Menu */}
+      {cartoonMenuOpen && (
+        <div className="absolute p-4 transform -translate-x-1/2 bg-pink-100 border-2 border-yellow-400 shadow-2xl top-20 left-1/2 rounded-xl">
+          <h3 className="mb-3 text-lg font-bold text-purple-800">Pick a Sticker!</h3>
+          <div className="grid grid-cols-3 gap-3">
+            {cartoonFigures.map((figure) => (
+              <div
+                key={figure.id}
+                className={`p-2 cursor-pointer rounded-lg hover:bg-yellow-200 ${
+                  selectedCartoon === figure.id ? "bg-yellow-300" : "bg-white"
+                } shadow-md`}
+                onClick={() => selectCartoon(figure.id)}
+              >
+                <img src={figure.src || "/placeholder.svg"} alt={figure.name} className="object-contain w-20 h-20" />
+                <p className="mt-1 text-sm font-bold text-center text-purple-800">{figure.name}</p>
               </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+
+
+
+{/* Video Section  */}
+{videoSectionOpen && (
+  <div className="fixed top-0 right-0 z-30 flex flex-col w-1/4 h-screen bg-white shadow-2xl rounded-l-xl">
+    {/* Close Button */}
+    <button
+      className="absolute z-40 p-1 bg-red-400 rounded-full top-2 right-2 hover:bg-red-500"
+      onClick={toggleVideoSection}
+      title="Close"
+    >
+      <X size={20} color="#fff" />
+    </button>
+
+    {/* Inner content with scroll */}
+    <div className="relative flex flex-col flex-1 p-4 overflow-y-auto">
+      {/* Search Bar */}
+      {!selectedVideoId && (
+        <div className="flex items-center mb-4">
+          <div className="relative flex-grow">
+            <input
+              type="text"
+              value={videoSearchQuery}
+              onChange={(e) => setVideoSearchQuery(e.target.value)}
+              onKeyPress={(e) => e.key === "Enter" && handleVideoSearch(videoSearchQuery)}
+              placeholder="Search for videos..."
+              className="w-full p-2 pr-10 text-sm text-purple-800 placeholder-purple-400 border-2 border-yellow-400 rounded-full bg-pink-50 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+            <button
+              className="absolute p-1 bg-purple-500 rounded-full right-2 top-2 hover:bg-purple-600"
+              onClick={() => handleVideoSearch(videoSearchQuery)}
+              title="Search"
+            >
+              <Search size={16} color="#fff" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Video or Search Results */}
+      {selectedVideoId ? (
+        <div className="flex flex-col">
+          {/* Enlarged YouTube Video */}
+          <div className="relative mb-2 h-80">
+            <div className="absolute top-0 left-0 w-full h-full">
+              <YouTube videoId={selectedVideoId} opts={playerOptions} />
             </div>
           </div>
-        )}
 
-        {/* Cartoon Menu */}
-        {showCartoonMenu && (
-          <div className="absolute p-6 transform -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg shadow-xl top-1/2 left-1/2">
-            <h3 className="mb-4 text-xl font-bold">Pick a Sticker!</h3>
-            <div className="grid grid-cols-3 gap-4">
-              {cartoonFigures.map((figure) => (
-                <button
-                  key={figure.id}
-                  className="flex flex-col items-center p-2 rounded-lg hover:bg-pink-100"
-                  onClick={() => {
-                    setSelectedCartoon(figure.id);
-                    setTool("cartoon");
-                    setShowCartoonMenu(false);
-                  }}
-                >
-                  <img src={figure.src} alt={figure.name} className="w-16 h-16" />
-                  <span className="text-sm font-bold">{figure.name}</span>
-                </button>
-              ))}
-            </div>
+          {/* Back Button */}
+          <button
+            className="w-full px-4 py-1 text-sm font-bold text-white bg-yellow-500 rounded-full shadow-md hover:bg-yellow-600"
+            onClick={() => setSelectedVideoId(null)}
+          >
+            Back to Videos
+          </button>
+        </div>
+      ) : (
+        <>
+          {/* YouTube Kids Button (optional) */}
+          <button
+            className="w-full px-4 py-1 mb-4 text-sm font-bold text-white bg-red-500 rounded-full shadow-md hover:bg-red-600"
+            onClick={openYouTubeKids}
+          >
+            Go to YouTube Kids
+          </button>
+
+          {/* Video Results */}
+          <div className="flex-1 overflow-y-auto">
+            {isLoading ? (
+              <p className="text-sm font-bold text-center text-purple-800">Loading videos...</p>
+            ) : error ? (
+              <p className="text-sm font-bold text-center text-red-600">{error}</p>
+            ) : videoResults.length > 0 ? (
+              <div className="grid grid-cols-1 gap-2">
+                {videoResults.map((video) => (
+                  <div
+                    key={video.id.videoId}
+                    className="p-2 transition-transform bg-yellow-100 rounded-lg shadow-md cursor-pointer hover:scale-105"
+                    onClick={() => setSelectedVideoId(video.id.videoId)}
+                  >
+                    <img
+                      src={video.snippet.thumbnails.medium.url}
+                      alt={video.snippet.title}
+                      className="object-cover w-full h-16 rounded-md"
+                    />
+                    <h3 className="mt-1 text-xs font-bold text-purple-800 line-clamp-2">
+                      {video.snippet.title}
+                    </h3>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm font-bold text-center text-purple-800">
+                Search for videos to see results!
+              </p>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  </div>
+)}
+
+
+      {/* Magic Button */}
+      <div
+        className="absolute bottom-10"
+        style={{
+          right: videoSectionOpen ? `${window.innerWidth * 0.25 + 40}px` : "2.5rem",
+        }}
+      >
+        <button
+          className="flex items-center justify-center w-16 h-16 transition-transform rounded-full shadow-xl bg-gradient-to-r from-purple-500 to-pink-500 animate-bounce hover:scale-110"
+          onClick={toggleMagicMenu}
+          title="Magic Options"
+        >
+          <span className="text-2xl text-white">✨</span>
+        </button>
+        {magicMenuOpen && (
+          <div className="absolute right-0 p-3 bg-white border-2 border-yellow-400 rounded-lg shadow-2xl bottom-20">
+            <button
+              className="block w-full px-4 py-2 font-bold text-left text-purple-800 rounded-md hover:bg-yellow-200"
+              onClick={() => handleMagicOption("Make Image")}
+            >
+              🖼️ Image
+            </button>
+            <button
+              className="block w-full px-4 py-2 font-bold text-left text-purple-800 rounded-md hover:bg-yellow-200"
+              onClick={() => handleMagicOption("Make Video")}
+            >
+              🎥 Video
+            </button>
+            <button
+              className="block w-full px-4 py-2 font-bold text-left text-purple-800 rounded-md hover:bg-yellow-200"
+              onClick={() => handleMagicOption("Make Animation")}
+            >
+              🎬 Animation
+            </button>
+            <button
+              className="block w-full px-4 py-2 font-bold text-left text-purple-800 rounded-md hover:bg-yellow-200"
+              onClick={() => handleMagicOption("Audio")}
+            >
+              🎵 Audio
+            </button>
           </div>
         )}
       </div>
 
-      {/* Zoom Controls */}
-      <div className="absolute flex gap-2 p-2 bg-white rounded-lg shadow-md bottom-4 right-4">
-        <button className="p-2" onClick={zoomIn}><ZoomIn size={24} /></button>
-        <button className="p-2" onClick={zoomOut}><ZoomOut size={24} /></button>
-        <button className="p-2 text-sm font-bold" onClick={resetView}>Reset</button>
-      </div>
-
-      {/* Status */}
-      <div className="absolute p-2 bg-white rounded-lg shadow-md bottom-4 left-4">
-        Zoom: {Math.round(scale * 100)}%
+      {/* Status Bar */}
+      <div className="absolute px-4 py-2 bg-yellow-300 rounded-full shadow-md bottom-4 left-4">
+        <span className="text-sm font-bold text-purple-800">Zoom: {Math.round(scale * 100)}%</span>
       </div>
     </div>
   );
-};
-
-export default ThirdBoard;
+}

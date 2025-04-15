@@ -926,6 +926,7 @@ export default function InfiniteCanvas() {
           <span className="block text-xs font-bold text-purple-800">Reset</span>
         </button>
         <div className="w-1 h-8 mx-2 bg-purple-500 rounded-full" />
+        
         <button
           className={`p-3 rounded-full ${videoSectionOpen ? "bg-teal-400" : "bg-white"} hover:bg-teal-200 shadow-md`}
           onClick={toggleVideoSection}
