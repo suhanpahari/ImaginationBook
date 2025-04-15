@@ -6,6 +6,8 @@ import { RoughCanvas } from "roughjs/bin/canvas";
 import { useSelector } from "react-redux";
 import { Search, X, ArrowLeft, Youtube } from "lucide-react";
 import YouTube from "react-youtube";
+import { useNavigate } from "react-router-dom";
+
 
 import {
   Pencil,
@@ -75,6 +77,16 @@ export default function InfiniteCanvas() {
   const [selectedVideoId, setSelectedVideoId] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  const navigate = useNavigate() ;
+  
+  const email = useSelector((state) => state.user.userEmail)
+  const password = useSelector((state) => state.user.userPassword);
+
+  if(!email && !password)
+  {
+    navigate("/") ; 
+  }
 
   // YouTube player options
   const playerOptions = {

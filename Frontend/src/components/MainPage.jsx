@@ -9,6 +9,14 @@ export default function ImaginationBookHome() {
   const [activeTab, setActiveTab] = useState('explore');
   const [animateBackground, setAnimateBackground] = useState(0);
   const navigate = useNavigate(); 
+  
+  const email = useSelector((state) => state.user.userEmail)
+  const password = useSelector((state) => state.user.userPassword);
+
+  if(!email && !password)
+  {
+    navigate("/") ; 
+  }
 
   // Animated background effect
   useEffect(() => {

@@ -3,6 +3,9 @@ import rough from "roughjs/bundled/rough.esm";
 import getStroke from "perfect-freehand";
 import axios from "axios";
 import YouTube from "react-youtube";
+import { useSelector, useDispatch } from "react-redux";
+import { useNavigate } from "react-router-dom";
+
 
 const generator = rough.generator();
 
@@ -252,8 +255,18 @@ const FirstBoard = () => {
   const canvasRef = useRef();
   const pressedKeys = usePressedKeys();
   const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate() ; 
+  const email = useSelector((state) => state.user.userEmail)
+  const password = useSelector((state) => state.user.userPassword);
 
-  const fetchVideos = async (query = "kids educational videos") => {
+  if(!email && !password)
+  {
+    navigate("/") ; 
+  }
+  
+  
+
+  const fetchVideos = async (query = "Drawing video") => {
     try {
       setIsLoading(true);
       const response = await axios.get(
@@ -275,7 +288,9 @@ const FirstBoard = () => {
       }));
       setVideos(videos);
       setError(null);
-    } catch (err) {
+    } 
+    catch (err) 
+    {
       console.error("Error fetching videos:", err);
       setError("Oops! Couldn't load videos. Try again later.");
       setVideos([]);
@@ -553,15 +568,22 @@ const FirstBoard = () => {
   };
 
   const saveToDatabase = async () => {
+    // const email = useSelector((state) => state.user.userEmail)
+
     try {
+      if (!email) {
+        alert("No user email found. Please log in first.");
+        return;
+      }
+      
       const drawingData = {
         elements: elements.map(({ roughElement, ...rest }) => rest),
         name: `KidsDrawing-${Date.now()}`,
       };
-      let url = "http://localhost:3000/api/drawings";
+      let url = `http://localhost:3000/api/drawings/${email}`;
       let method = "POST";
       if (drawingId) {
-        url = `http://localhost:3000/api/drawings/${drawingId}`;
+        url = `http://localhost:3000/api/drawings/${drawingId}/${email}`;
         method = "PUT";
       }
       const response = await fetch(url, {
@@ -582,18 +604,23 @@ const FirstBoard = () => {
     }
   };
 
-  const loadFromDatabase = async (id = "67f95d1452fbc68703c12ed6") => {
+  const loadFromDatabase = async (id = "67feafe97904e414cabecb3f") => {
     try {
-      const response = await fetch(`http://localhost:3000/api/drawings/${id}`);
+      const response = await fetch(`http://localhost:3000/api/drawings/${id}/${email}`);
       const result = await response.json();
-      if (response.ok) {
+      if (response.ok) 
+      {
         setElements(result.elements);
         setDrawingId(result.id);
         alert("Cool! Your drawing is loaded!");
-      } else {
+      } 
+      else 
+      {
         throw new Error(result.error || "Failed to load drawing");
       }
-    } catch (error) {
+    } 
+    catch (error) 
+    {
       console.error("Error loading drawing:", error);
       alert("Oops! Couldn't load the drawing.");
     }
@@ -986,7 +1013,7 @@ const FirstBoard = () => {
             Save
           </button>
           <button
-            onClick={() => loadFromDatabase("67f95d1452fbc68703c12ed6")}
+            onClick={() => loadFromDatabase("67feafe97904e414cabecb3f")}
             className="px-4 py-2 font-bold text-purple-800 transition bg-purple-100 rounded-lg hover:bg-purple-200"
           >
             <svg className="inline-block w-6 h-6 mr-1" fill="currentColor" viewBox="0 0 20 20">

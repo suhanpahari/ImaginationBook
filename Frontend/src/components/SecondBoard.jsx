@@ -7,6 +7,7 @@ import { useSelector } from "react-redux";
 import { Search, X, ArrowLeft, Youtube } from "lucide-react";
 import YouTube from "react-youtube";
 
+
 import {
   Pencil,
   Square,
@@ -25,6 +26,7 @@ import {
   Palette,
   Eraser,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 // Cartoon figures data
 const cartoonFigures = [
@@ -75,7 +77,18 @@ export default function InfiniteCanvas() {
   const [selectedVideoId, setSelectedVideoId] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const navigate = useNavigate() ;
+  
+  const email = useSelector((state) => state.user.userEmail)
+  const password = useSelector((state) => state.user.userPassword);
 
+  if(!email && !password)
+  {
+    navigate("/") ; 
+  }
+
+
+  
   // YouTube player options
   const playerOptions = {
     height: "100%",

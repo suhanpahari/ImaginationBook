@@ -60,11 +60,13 @@ app.post('/login' , async (req,res)=>
     
 })
 
-
 // Save Drawing (Create)
-app.post("/api/drawings", async (req, res) => {
+app.post("/api/drawings/:email", async (req, res) => {
   try {
-    const drawing = new DraftCanvas(req.body);
+    const drawing = new DraftCanvas({
+      ...req.body,
+      userEmail: req.params.email,
+    });
     await drawing.save();
     res.status(201).json({ id: drawing._id });
   } catch (error) {
@@ -75,8 +77,8 @@ app.post("/api/drawings", async (req, res) => {
 // Update Drawing
 app.put("/api/drawings/:id/:email", async (req, res) => {
   try {
-    const drawing = await DraftCanvas.findByIdAndUpdate(
-      {_id: req.params.id, userEmail: req.params.email},
+    const drawing = await DraftCanvas.findOneAndUpdate(
+      { _id: req.params.id, userEmail: req.params.email },
       { elements: req.body.elements, name: req.body.name },
       { new: true }
     );
@@ -89,15 +91,23 @@ app.put("/api/drawings/:id/:email", async (req, res) => {
 
 // Load Drawing
 app.get("/api/drawings/:id/:email", async (req, res) => {
-  try {
-    const drawing = await DraftCanvas.findById({_id: req.params.id, userEmail: req.params.email});
+  try 
+  {
+    const drawing = await DraftCanvas.findOne({
+      _id: req.params.id,
+      userEmail: req.params.email,
+       
+    });
+
+    console.log(drawing) ; 
     if (!drawing) return res.status(404).json({ error: "Drawing not found" });
     res.json(drawing);
-  } catch (error) {
+  } 
+  catch (error) 
+  {
     res.status(500).json({ error: "Failed to load drawing" });
   }
 });
-
 
 
 app.listen(port, (req,res) =>

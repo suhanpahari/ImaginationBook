@@ -163,6 +163,9 @@ const AuthModal = ({ showAuth, setShowAuth, authMode, setAuthMode }) => {
 
       const data = await response.json();
       if (response.ok) {
+        dispatch(setUserEmail(emailSignup));
+        dispatch(setUserPassword(passwordSignup));
+    
         toast.success('Signup successful! Please log in.');
         setAuthMode('login');
         setEmailSignup('');
@@ -481,7 +484,7 @@ const AuthModal = ({ showAuth, setShowAuth, authMode, setAuthMode }) => {
 
 // Main Landing Page Component
 export default function LandingPage() {
-  const dispatch = useDispatch();
+  // const dispatch = useDispatch();
   const navigate = useNavigate();
   const [showAuth, setShowAuth] = useState(false);
   const [authMode, setAuthMode] = useState('login');
