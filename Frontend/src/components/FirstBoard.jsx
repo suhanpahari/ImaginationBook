@@ -258,6 +258,7 @@ const FirstBoard = () => {
   const navigate = useNavigate() ; 
   const email = useSelector((state) => state.user.userEmail)
   const password = useSelector((state) => state.user.userPassword);
+  
 
   if(!email && !password)
   {

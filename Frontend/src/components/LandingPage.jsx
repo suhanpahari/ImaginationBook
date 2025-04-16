@@ -116,6 +116,26 @@ const AuthModal = ({ showAuth, setShowAuth, authMode, setAuthMode }) => {
   // Password strength validation
   const isPasswordStrong = (password) => password.length >= 8;
 
+
+
+  // Localstorage add
+
+  useEffect(() => {
+    const storedEmail = localStorage.getItem('email');
+    const storedPassword = localStorage.getItem('password');
+  
+    if (storedEmail && storedPassword) {
+      // You can also dispatch to Redux here if needed
+      dispatch(setUserEmail(storedEmail));
+      dispatch(setUserPassword(storedPassword));
+  
+      navigate('/home'); // Automatically redirect to home if already logged in
+    }
+  }, []);
+
+  
+  
+
   // Real-time password confirmation validation
   useEffect(() => {
     if (passwordSignup && confirmPasswordSignup) {
@@ -207,7 +227,8 @@ const AuthModal = ({ showAuth, setShowAuth, authMode, setAuthMode }) => {
       const data = await response.json();
       if (response.ok) {
         // Store token securely (consider using httpOnly cookies instead)
-        localStorage.setItem('token', data.token);
+        localStorage.setItem('email',emailLogin);
+        localStorage.setItem('password', passwordLogin) ; 
         // Dispatch the actions to update Redux state
         dispatch(setUserEmail(emailLogin));
         dispatch(setUserPassword(passwordLogin));
