@@ -109,6 +109,22 @@ app.get("/api/drawings/:id/:email", async (req, res) => {
   }
 });
 
+app.get("/api/draft" ,async (req,res) =>
+{
+  const { email } = req.query;
+
+  if (!email) {
+    return res.status(400).json({ error: 'Email is required' });
+  }
+
+  try {
+    const drafts = await DraftCanvas.find({ userEmail: email }).sort({ updatedAt: -1 });
+    res.json(drafts);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error while fetching drafts' });
+  }
+})
 
 app.listen(port, (req,res) =>
 {

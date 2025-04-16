@@ -114,7 +114,7 @@ const AuthModal = ({ showAuth, setShowAuth, authMode, setAuthMode }) => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
   // Password strength validation
-  const isPasswordStrong = (password) => password.length >= 8;
+  const isPasswordStrong = (password) => password.length >= 5;
 
 
 
@@ -125,11 +125,10 @@ const AuthModal = ({ showAuth, setShowAuth, authMode, setAuthMode }) => {
     const storedPassword = localStorage.getItem('password');
   
     if (storedEmail && storedPassword) {
-      // You can also dispatch to Redux here if needed
-      dispatch(setUserEmail(storedEmail));
+       dispatch(setUserEmail(storedEmail));
       dispatch(setUserPassword(storedPassword));
   
-      navigate('/home'); // Automatically redirect to home if already logged in
+      navigate('/home'); 
     }
   }, []);
 
@@ -142,7 +141,7 @@ const AuthModal = ({ showAuth, setShowAuth, authMode, setAuthMode }) => {
       if (passwordSignup !== confirmPasswordSignup) {
         setSignupError('Passwords do not match.');
       } else if (!isPasswordStrong(passwordSignup)) {
-        setSignupError('Password must be at least 8 characters long.');
+        setSignupError('Password must be at least 5 characters long.');
       } else {
         setSignupError('');
       }
@@ -150,6 +149,9 @@ const AuthModal = ({ showAuth, setShowAuth, authMode, setAuthMode }) => {
       setSignupError('');
     }
   }, [passwordSignup, confirmPasswordSignup]);
+
+
+  // Signup and login functions
 
   const signupUser = async () => {
     if (!emailRegex.test(emailSignup)) {
@@ -165,7 +167,7 @@ const AuthModal = ({ showAuth, setShowAuth, authMode, setAuthMode }) => {
       return;
     }
     if (!isPasswordStrong(passwordSignup)) {
-      toast.error('Password must be at least 8 characters long.');
+      toast.error('Password must be at least 5 characters long.');
       return;
     }
 
@@ -178,6 +180,7 @@ const AuthModal = ({ showAuth, setShowAuth, authMode, setAuthMode }) => {
           email: emailSignup,
           password: passwordSignup,
           name: nameSignup,
+          confirmPassword: confirmPasswordSignup,
         }),
       });
 

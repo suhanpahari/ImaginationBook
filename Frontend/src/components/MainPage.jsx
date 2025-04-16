@@ -9,9 +9,12 @@ export default function ImaginationBookHome() {
   const [activeTab, setActiveTab] = useState('explore');
   const [animateBackground, setAnimateBackground] = useState(0);
   const navigate = useNavigate(); 
-  
+  const [draftItems, setDraftItems] = useState([]);
+
   const email = useSelector((state) => state.user.userEmail)
   const password = useSelector((state) => state.user.userPassword);
+
+  const dispatch = useDispatch();
 
   if(!email && !password)
   {
@@ -26,13 +29,29 @@ export default function ImaginationBookHome() {
     return () => clearInterval(interval);
   }, []);
   
+  
+  
   // Sample draft data
-  const draftItems = [
-    { id: 1, title: "Space Adventure", type: "story", date: "Apr 8" },
-    { id: 2, title: "Magic Forest", type: "art", date: "Apr 9" },
-    { id: 3, title: "Dancing Dragons", type: "animation", date: "Apr 10" }
-  ];
 
+  useEffect(() => {
+    const fetchDrafts = async () => {
+      try {
+        const res = await fetch(`http://localhost:3000/api/draft?email=${email}`);
+        const data = await res.json();
+        setDraftItems(data);  
+      } catch (err) {
+        console.error('Error fetching drafts:', err);
+      }
+    };
+  
+    if (email) fetchDrafts();
+  }, [email]);
+  
+
+  
+  
+
+  
   return (
     <div className="relative min-h-screen overflow-hidden font-sans bg-white">
       {/* Animated Background Elements */}
@@ -101,7 +120,11 @@ export default function ImaginationBookHome() {
 
               <span className="absolute bottom-0 right-0 z-20 w-3 h-3 bg-green-400 border-2 border-white rounded-full"></span>
             </div>
-            <button className="text-white transition-colors hover:text-yellow-300">
+            <button className="text-white transition-colors hover:text-yellow-300"
+            onClick={() =>{
+              dispatch(clearCredentials())
+              localStorage.clear();
+            }}>
               <LogOut size={22} />
             </button>
           </div>
@@ -262,24 +285,53 @@ export default function ImaginationBookHome() {
               My Magical Creations
             </h2>
             
+
+            
+
+                    {/* {
+            _id: new ObjectId('67ffcd68365e635505e46487'),
+            name: 'KidsDrawing-1744817512820',
+            elements: [
+              [Object], [Object], [Object],
+              [Object], [Object], [Object],
+              [Object], [Object], [Object],
+              [Object], [Object], [Object],
+              [Object], [Object], [Object],
+              [Object], [Object], [Object],
+              [Object], [Object], [Object],
+              [Object], [Object], [Object],
+              [Object], [Object], [Object],
+              [Object], [Object], [Object],
+              [Object], [Object]
+            ],
+            userEmail: 'prantiksanki2004@gmail.com',
+            canvasType: 'story',
+            createdAt: 2025-04-16T15:31:52.834Z,
+            updatedAt: 2025-04-16T15:31:52.834Z,
+            __v: 0
+          } */}
+
+             
             {draftItems.length > 0 ? (
               <div className="space-y-4">
                 {draftItems.map(draft => (
-                  <div key={draft.id} className="flex items-center justify-between p-4 transition-all transform border border-gray-200 cursor-pointer bg-gray-50 rounded-2xl hover:bg-gray-100 hover:scale-102 hover:shadow-md">
+                  <div key={draft._id} className="flex items-center justify-between p-4 transition-all transform border border-gray-200 cursor-pointer bg-gray-50 rounded-2xl hover:bg-gray-100 hover:scale-102 hover:shadow-md">
                     <div className="flex items-center">
                       <div className={`p-4 rounded-full mr-4 shadow-inner ${
-                        draft.type === 'story' ? 'bg-gradient-to-br from-blue-500 to-blue-400' : 
-                        draft.type === 'art' ? 'bg-gradient-to-br from-purple-500 to-purple-400' : 
+                        draft.canvasType === 'story' ? 'bg-gradient-to-br from-blue-500 to-blue-400' : 
+                        draft.canvasType === 'art' ? 'bg-gradient-to-br from-purple-500 to-purple-400' : 
                         'bg-gradient-to-br from-pink-500 to-pink-400'
                       }`}>
-                        {draft.type === 'story' ? <Edit size={24} className="text-white" /> : 
-                         draft.type === 'art' ? <Image size={24} className="text-white" /> : 
+                        {draft.canvasType === 'story' ? <Edit size={24} className="text-white" /> : 
+                         draft.canvasType === 'art' ? <Image size={24} className="text-white" /> : 
                          <PlayCircle size={24} className="text-white" />}
                       </div>
                       <div>
-                        <h3 className="text-lg font-bold text-gray-800">{draft.title}</h3>
-                        <p className="text-sm text-gray-500">Last edited: {draft.date}</p>
-                      </div>
+                        <h3 className="text-lg font-bold text-gray-800">{draft.name}</h3>
+                        <p className="text-sm text-gray-500">
+                                  Last edited: {new Date(draft.updatedAt).toLocaleString()}
+                        </p>                      
+                        </div>
                     </div>
                     <div className="flex space-x-2">
                       <button className="flex items-center px-6 py-2 text-sm text-white transition-all transform rounded-full shadow-md bg-gradient-to-r from-purple-500 to-pink-500 hover:shadow-lg hover:scale-105">
@@ -307,6 +359,9 @@ export default function ImaginationBookHome() {
             )}
           </div>
         )}
+        
+
+        
 
         {/* Featured Creations (visible in Explore tab) */}
         {activeTab === 'explore' && (
