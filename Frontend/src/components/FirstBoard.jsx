@@ -580,6 +580,7 @@ const FirstBoard = () => {
       const drawingData = {
         elements: elements.map(({ roughElement, ...rest }) => rest),
         name: `KidsDrawing-${Date.now()}`,
+        board:"Board1" , 
       };
       let url = `http://localhost:3000/api/drawings/${email}`;
       let method = "POST";

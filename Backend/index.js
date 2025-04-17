@@ -62,11 +62,15 @@ app.post('/login' , async (req,res)=>
 
 // Save Drawing (Create)
 app.post("/api/drawings/:email", async (req, res) => {
+
+  console.log(req.body) ;
   try {
     const drawing = new DraftCanvas({
       ...req.body,
       userEmail: req.params.email,
+      board: req.body.board,
     });
+
     await drawing.save();
     res.status(201).json({ id: drawing._id });
   } catch (error) {
@@ -76,10 +80,12 @@ app.post("/api/drawings/:email", async (req, res) => {
 
 // Update Drawing
 app.put("/api/drawings/:id/:email", async (req, res) => {
+  console.log(req.body)
   try {
     const drawing = await DraftCanvas.findOneAndUpdate(
-      { _id: req.params.id, userEmail: req.params.email },
-      { elements: req.body.elements, name: req.body.name },
+      { _id: req.params.id, userEmail: req.params.email},
+      { elements: req.body.elements, name: req.body.name, board: req.body.board  },
+
       { new: true }
     );
     if (!drawing) return res.status(404).json({ error: "Drawing not found" });
@@ -96,6 +102,7 @@ app.get("/api/drawings/:id/:email", async (req, res) => {
     const drawing = await DraftCanvas.findOne({
       _id: req.params.id,
       userEmail: req.params.email,
+    
        
     });
 

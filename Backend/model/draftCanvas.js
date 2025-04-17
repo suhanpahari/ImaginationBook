@@ -10,6 +10,7 @@ const draftCanvasSchema = new mongoose.Schema(
             type:String,
             default:"story"
         },
+        board: String,
         createdAt: { type: Date, default: Date.now },
     }, 
     {timestamps: true}

@@ -384,23 +384,25 @@ export default function InfiniteCanvas() {
   // Save drawing to database
   const saveToDatabase = async () => {
     try {
-      const drawingData = {
-        elements: elements.map(({ roughElement, ...rest }) => rest),
-        name: `Drawing-${Date.now()}`,
-      };
-      let url = "http://localhost:3000/api/drawings";
+      const cleanElements = elements.map(({ roughElement, ...rest }) => rest);
+
+      
+      // console.log(elements) ; 
+      let url = `http://localhost:3000/api/drawings/${email}`;
       let method = "POST";
       if (drawingId) {
-        url = `http://localhost:3000/api/drawings/${drawingId}`;
+        url = `http://localhost:3000/api/drawings/${drawingId}/${email}`;
         method = "PUT";
       }
       const response = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          drawingData,
+          elements: cleanElements,
+          name: `Drawing-${Date.now()}`,
           userEmail,
           userPassword,
+          board: "Board2",
         }),
       });
       const result = await response.json();
