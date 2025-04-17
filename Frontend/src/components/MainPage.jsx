@@ -334,7 +334,9 @@ export default function ImaginationBookHome() {
                         </div>
                     </div>
                     <div className="flex space-x-2">
-                      <button className="flex items-center px-6 py-2 text-sm text-white transition-all transform rounded-full shadow-md bg-gradient-to-r from-purple-500 to-pink-500 hover:shadow-lg hover:scale-105">
+                      <button className="flex items-center px-6 py-2 text-sm text-white transition-all transform rounded-full shadow-md bg-gradient-to-r from-purple-500 to-pink-500 hover:shadow-lg hover:scale-105"
+                        onClick={() => navigate(`/draft1/${draft._id}`)}
+                      >
                         <Zap className="mr-1" size={14} />
                         Continue
                       </button>

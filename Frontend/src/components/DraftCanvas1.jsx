@@ -1,14 +1,17 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState, useCallback } from "react";
 import rough from "roughjs/bundled/rough.esm";
 import getStroke from "perfect-freehand";
 import axios from "axios";
 import YouTube from "react-youtube";
-import { useSelector, useDispatch } from "react-redux";
-import { useNavigate } from "react-router-dom";
+import { useSelector } from "react-redux";
+import { useNavigate, useParams } from "react-router-dom";
+import { useDispatch } from "react-redux";
+
 
 
 const generator = rough.generator();
 
+// Constants for colors, thicknesses, and fill styles
 const colorOptions = [
   { name: "Black", value: "#000000" },
   { name: "Red", value: "#FF3B30" },
@@ -35,6 +38,7 @@ const fillOptions = [
   { name: "Cross-hatch", value: "cross-hatch" },
 ];
 
+// Utility functions (unchanged from original)
 const createElement = (id, x1, y1, x2, y2, type, options = {}) => {
   const { strokeColor = "#000000", strokeWidth = 2, fillStyle = "none", fill = "none" } = options;
   const roughOptions = {
@@ -61,8 +65,7 @@ const createElement = (id, x1, y1, x2, y2, type, options = {}) => {
   }
 };
 
-// Utility functions (unchanged)
-const nearPoint = (x, y, x1, y1, name) => Math.abs(x - x1) < 5 && Math.abs(y - y1) < 5 ? name : null;
+const nearPoint = (x, y, x1, y1, name) => (Math.abs(x - x1) < 5 && Math.abs(y - y1) < 5 ? name : null);
 const onLine = (x1, y1, x2, y2, x, y, maxDistance = 1) => {
   const a = { x: x1, y: y1 };
   const b = { x: x2, y: y2 };
@@ -147,25 +150,6 @@ const resizedCoordinates = (clientX, clientY, position, coordinates) => {
       return null;
   }
 };
-const useHistory = (initialState) => {
-  const [index, setIndex] = useState(0);
-  const [history, setHistory] = useState([initialState]);
-  const setState = (action, overwrite = false) => {
-    const newState = typeof action === "function" ? action(history[index]) : action;
-    if (overwrite) {
-      const historyCopy = [...history];
-      historyCopy[index] = newState;
-      setHistory(historyCopy);
-    } else {
-      const updatedState = [...history].slice(0, index + 1);
-      setHistory([...updatedState, newState]);
-      setIndex((prevState) => prevState + 1);
-    }
-  };
-  const undo = () => index > 0 && setIndex((prevState) => prevState - 1);
-  const redo = () => index < history.length - 1 && setIndex((prevState) => prevState + 1);
-  return [history[index], setState, undo, redo];
-};
 const getSvgPathFromStroke = (stroke) => {
   if (!stroke.length) return "";
   const d = stroke.reduce(
@@ -208,8 +192,49 @@ const drawElement = (roughCanvas, context, element) => {
   }
 };
 const adjustmentRequired = (type) => ["line", "rectangle"].includes(type);
+
+// Custom hook for managing drawing history
+const useHistory = (initialState) => {
+  const [index, setIndex] = useState(0);
+  const [history, setHistory] = useState([initialState]);
+
+  const setState = useCallback((action, overwrite = false) => {
+    setHistory((prevHistory) => {
+      const currentIndex = index;
+      const newState = typeof action === "function" ? action(prevHistory[currentIndex]) : action;
+      if (overwrite) {
+        const historyCopy = [...prevHistory];
+        historyCopy[currentIndex] = newState;
+        return historyCopy;
+      } else {
+        const updatedState = [...prevHistory].slice(0, currentIndex + 1);
+        return [...updatedState, newState];
+      }
+    });
+    if (!overwrite) {
+      setIndex((prev) => prev + 1);
+    }
+  }, [index]);
+
+  const undo = useCallback(() => {
+    if (index > 0) {
+      setIndex((prev) => prev - 1);
+    }
+  }, [index]);
+
+  const redo = useCallback(() => {
+    if (index < history.length - 1) {
+      setIndex((prev) => prev + 1);
+    }
+  }, [index, history.length]);
+
+  return [history[index], setState, undo, redo];
+};
+
+// Custom hook for tracking pressed keys
 const usePressedKeys = () => {
   const [pressedKeys, setPressedKeys] = useState(new Set());
+
   useEffect(() => {
     const handleKeyDown = (event) => setPressedKeys((prev) => new Set(prev).add(event.key));
     const handleKeyUp = (event) =>
@@ -218,6 +243,7 @@ const usePressedKeys = () => {
         updated.delete(event.key);
         return updated;
       });
+
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
     return () => {
@@ -225,10 +251,34 @@ const usePressedKeys = () => {
       window.removeEventListener("keyup", handleKeyUp);
     };
   }, []);
+
   return pressedKeys;
 };
 
-const FirstBoard = () => {
+
+
+
+
+
+
+
+
+
+
+// *****************************************************************************************************
+
+
+
+
+
+
+
+
+
+
+
+const DraftCanvas1 = () => {
+  const navigate = useNavigate();
   const [elements, setElements, undo, redo] = useHistory([]);
   const [action, setAction] = useState("none");
   const [tool, setTool] = useState("pencil");
@@ -251,37 +301,49 @@ const FirstBoard = () => {
   const [selectedVideoId, setSelectedVideoId] = useState(null);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState("kids educational videos");
+  const [isLoading, setIsLoading] = useState(false);
   const textAreaRef = useRef();
   const canvasRef = useRef();
   const pressedKeys = usePressedKeys();
-  const [isLoading, setIsLoading] = useState(false);
-  const navigate = useNavigate() ; 
-  const email = useSelector((state) => state.user.userEmail)
-  const password = useSelector((state) => state.user.userPassword);
-  
 
-  if(!email && !password)
-  {
-    navigate("/") ; 
-  }
   
-  
+  const reduxEmail = useSelector((state) => state.user.userEmail);
+const reduxPassword = useSelector((state) => state.user.userPassword);
 
-  const fetchVideos = async (query = "Drawing video") => {
+const email = reduxEmail || localStorage.getItem("email");
+const password = reduxPassword || localStorage.getItem("password");
+
+
+
+  // Id identify from parameter
+  const { id } = useParams();
+
+    console.log(id); 
+    console.log(email);
+    console.log(password) ;
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if(!email && !password) {
+      navigate("/");
+    }
+  }, [email, password, navigate]);
+
+
+
+  
+  // Fetch videos from YouTube API
+  const fetchVideos = useCallback(async (query = "Drawing video") => {
     try {
       setIsLoading(true);
-      const response = await axios.get(
-        "https://www.googleapis.com/youtube/v3/search",
-        {
-          params: {
-            part: "snippet",
-            q: query,
-            type: "video",
-            maxResults: 200,
-            key: import.meta.env.VITE_YOUTUBE_API_KEY,
-          },
-        }
-      );
+      const response = await axios.get("https://www.googleapis.com/youtube/v3/search", {
+        params: {
+          part: "snippet",
+          q: query,
+          type: "video",
+          maxResults: 50, // Reduced to avoid quota issues
+          key: import.meta.env.VITE_YOUTUBE_API_KEY,
+        },
+      });
       const videos = response.data.items.map((item) => ({
         id: item.id.videoId,
         title: item.snippet.title,
@@ -289,37 +351,75 @@ const FirstBoard = () => {
       }));
       setVideos(videos);
       setError(null);
-    } 
-    catch (err) 
-    {
+    } catch (err) {
       console.error("Error fetching videos:", err);
-      setError("Oops! Couldn't load videos. Try again later.");
+      setError(
+        err.response?.status === 403
+          ? "API quota exceeded. Please try again later."
+          : "Oops! Couldn't load videos. Try again later."
+      );
       setVideos([]);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
+  // Load drawing from database
+  const loadFromDatabase = useCallback(async () => {
+    if (!id || !email) return;
+    try {
+      const response = await fetch(`http://localhost:3000/api/drawings/${id}/${email}`);
+      const result = await response.json();
+      if (response.ok) {
+        setElements(result.elements || []);
+        setDrawingId(result.id);
+      } else {
+        throw new Error(result.error || "Failed to load drawing");
+      }
+    } catch (error) {
+      console.error("Error loading drawing:", error);
+      alert("Oops! Couldn't load the drawing.");
+    }
+  }, [[id, email, setElements]]);
+
+
+
+  
+  // Load drawing on mount if ID is provided
+  useEffect(() => {
+    if (id && email) {
+      loadFromDatabase();
+    }
+  }, []);
+
+
+
+
+  
+  // Draw canvas content
   useLayoutEffect(() => {
     const canvas = canvasRef.current;
+    if (!canvas) return;
     const context = canvas.getContext("2d");
     const roughCanvas = rough.canvas(canvas);
 
+    // Clear canvas
     context.clearRect(0, 0, canvas.width, canvas.height);
 
+    // Draw grid if enabled
     if (showGrid) {
       context.save();
       context.translate(panOffset.x, panOffset.y);
       context.strokeStyle = "#ccc";
       context.lineWidth = 0.5;
       const gridSize = 20;
-      for (let x = 0; x < canvas.width; x += gridSize) {
+      for (let x = -panOffset.x % gridSize; x < canvas.width; x += gridSize) {
         context.beginPath();
         context.moveTo(x, 0);
         context.lineTo(x, canvas.height);
         context.stroke();
       }
-      for (let y = 0; y < canvas.height; y += gridSize) {
+      for (let y = -panOffset.y % gridSize; y < canvas.height; y += gridSize) {
         context.beginPath();
         context.moveTo(0, y);
         context.lineTo(canvas.width, y);
@@ -328,6 +428,7 @@ const FirstBoard = () => {
       context.restore();
     }
 
+    // Draw elements
     context.save();
     context.translate(panOffset.x, panOffset.y);
     elements.forEach((element) => {
@@ -337,9 +438,11 @@ const FirstBoard = () => {
     context.restore();
   }, [elements, action, selectedElement, panOffset, showGrid]);
 
+  // Handle undo/redo keybindings
   useEffect(() => {
     const undoRedoFunction = (event) => {
       if ((event.metaKey || event.ctrlKey) && event.key === "z") {
+        event.preventDefault();
         event.shiftKey ? redo() : undo();
       }
     };
@@ -347,27 +450,30 @@ const FirstBoard = () => {
     return () => document.removeEventListener("keydown", undoRedoFunction);
   }, [undo, redo]);
 
+  // Handle canvas panning
   useEffect(() => {
     const panFunction = (event) => {
-      setPanOffset((prev) => ({
-        x: prev.x - event.deltaX,
-        y: prev.y - event.deltaY,
-      }));
+      if (pressedKeys.has(" ")) {
+        setPanOffset((prev) => ({
+          x: prev.x - event.deltaX,
+          y: prev.y - event.deltaY,
+        }));
+      }
     };
     document.addEventListener("wheel", panFunction);
     return () => document.removeEventListener("wheel", panFunction);
-  }, []);
+  }, [pressedKeys]);
 
+  // Focus textarea when writing
   useEffect(() => {
     const textArea = textAreaRef.current;
     if (action === "writing" && textArea) {
-      setTimeout(() => {
-        textArea.focus();
-        textArea.value = selectedElement.text || "";
-      }, 0);
+      textArea.focus();
+      textArea.value = selectedElement?.text || "";
     }
   }, [action, selectedElement]);
 
+  // Handle canvas resizing
   useEffect(() => {
     const handleResize = () => {
       if (canvasRef.current) {
@@ -380,121 +486,157 @@ const FirstBoard = () => {
     return () => window.removeEventListener("resize", handleResize);
   }, [showVideoSection]);
 
-  const updateElement = (id, x1, y1, x2, y2, type, options) => {
-    const elementsCopy = [...elements];
-    const elementOptions = {
-      strokeColor: selectedColor.value,
-      strokeWidth: selectedThickness.value,
-      fillStyle: selectedFillStyle.value,
-      fill: selectedFillStyle.value !== "none" ? selectedFillColor.value : "none",
-      ...options,
-    };
-
-    switch (type) {
-      case "line":
-      case "rectangle":
-        elementsCopy[id] = createElement(id, x1, y1, x2, y2, type, elementOptions);
-        break;
-      case "pencil":
-        elementsCopy[id].points = [...elementsCopy[id].points, { x: x2, y: y2 }];
-        break;
-      case "text":
-        const textWidth = canvasRef.current.getContext("2d").measureText(options?.text || "").width;
-        const textHeight = options?.strokeWidth || 24;
-        elementsCopy[id] = {
-          ...createElement(id, x1, y1, x1 + textWidth, y1 + textHeight, type, elementOptions),
-          text: options?.text || "",
-        };
-        break;
-      default:
-        throw new Error(`Type not recognised: ${type}`);
-    }
-    setElements(elementsCopy, true);
-  };
-
-  const getCoordinates = (event) => ({
-    clientX: event.clientX - panOffset.x,
-    clientY: event.clientY - panOffset.y,
-  });
-
-  const handlePointerDown = (event) => {
-    if (action === "writing") return;
-    const { clientX, clientY } = getCoordinates(event);
-
-    if (event.button === 1 || pressedKeys.has(" ")) {
-      setAction("panning");
-      setStartPanMousePosition({ x: clientX, y: clientY });
-      return;
-    }
-
-    if (tool === "selection") {
-      const element = getElementAtPosition(clientX, clientY, elements);
-      if (element) {
-        if (element.type === "pencil") {
-          const xOffsets = element.points.map((point) => clientX - point.x);
-          const yOffsets = element.points.map((point) => clientY - point.y);
-          setSelectedElement({ ...element, xOffsets, yOffsets });
-        } else {
-          const offsetX = clientX - element.x1;
-          const offsetY = clientY - element.y1;
-          setSelectedElement({ ...element, offsetX, offsetY });
-        }
-        setElements((prev) => prev);
-        setAction(element.position === "inside" ? "moving" : "resizing");
-      }
-    } else {
-      const id = elements.length;
-      const isStylus = event.pointerType === "pen";
-      const element = createElement(id, clientX, clientY, clientX, clientY, tool, {
+  // Update element in the canvas
+  const updateElement = useCallback(
+    (id, x1, y1, x2, y2, type, options) => {
+      const elementsCopy = [...elements];
+      const elementOptions = {
         strokeColor: selectedColor.value,
-        strokeWidth: isStylus ? selectedThickness.value * 1.5 : selectedThickness.value,
+        strokeWidth: selectedThickness.value,
         fillStyle: selectedFillStyle.value,
         fill: selectedFillStyle.value !== "none" ? selectedFillColor.value : "none",
-      });
-      setElements((prev) => [...prev, element]);
-      setSelectedElement(element);
-      setAction(tool === "text" ? "writing" : "drawing");
-    }
-  };
+        ...options,
+      };
 
-  const handlePointerMove = (event) => {
-    const { clientX, clientY } = getCoordinates(event);
+      switch (type) {
+        case "line":
+        case "rectangle":
+          elementsCopy[id] = createElement(id, x1, y1, x2, y2, type, elementOptions);
+          break;
+        case "pencil":
+          elementsCopy[id].points = [...elementsCopy[id].points, { x: x2, y: y2 }];
+          break;
+        case "text":
+          const textWidth = canvasRef.current.getContext("2d").measureText(options?.text || "").width;
+          const textHeight = options?.strokeWidth || 24;
+          elementsCopy[id] = {
+            ...createElement(id, x1, y1, x1 + textWidth, y1 + textHeight, type, elementOptions),
+            text: options?.text || "",
+          };
+          break;
+        default:
+          throw new Error(`Type not recognised: ${type}`);
+      }
+      setElements(elementsCopy, true);
+    },
+    [elements, selectedColor, selectedThickness, selectedFillStyle, selectedFillColor, setElements]
+  );
 
-    if (action === "panning") {
-      const deltaX = clientX - startPanMousePosition.x;
-      const deltaY = clientY - startPanMousePosition.y;
-      setPanOffset({
-        x: panOffset.x + deltaX,
-        y: panOffset.y + deltaY,
-      });
-      setStartPanMousePosition({ x: clientX, y: clientY });
-      return;
-    }
+  // Get canvas coordinates adjusted for panning
+  const getCoordinates = useCallback(
+    (event) => ({
+      clientX: event.clientX - panOffset.x,
+      clientY: event.clientY - panOffset.y,
+    }),
+    [panOffset]
+  );
 
-    if (tool === "selection") {
-      const element = getElementAtPosition(clientX, clientY, elements);
-      event.target.style.cursor = element ? cursorForPosition(element.position) : "default";
-    }
+  // Handle pointer down events
+  const handlePointerDown = useCallback(
+    (event) => {
+      if (action === "writing") return;
+      const { clientX, clientY } = getCoordinates(event);
 
-    if (action === "drawing") {
-      const index = elements.length - 1;
-      const { x1, y1 } = elements[index];
-      updateElement(index, x1, y1, clientX, clientY, tool);
-    } else if (action === "moving") {
-      if (selectedElement.type === "pencil") {
-        const newPoints = selectedElement.points.map((_, index) => ({
-          x: clientX - selectedElement.xOffsets[index],
-          y: clientY - selectedElement.yOffsets[index],
-        }));
-        const elementsCopy = [...elements];
-        elementsCopy[selectedElement.id] = { ...elementsCopy[selectedElement.id], points: newPoints };
-        setElements(elementsCopy, true);
+      if (event.button === 1 || pressedKeys.has(" ")) {
+        setAction("panning");
+        setStartPanMousePosition({ x: clientX, y: clientY });
+        return;
+      }
+
+      if (tool === "selection") {
+        const element = getElementAtPosition(clientX, clientY, elements);
+        if (element) {
+          if (element.type === "pencil") {
+            const xOffsets = element.points.map((point) => clientX - point.x);
+            const yOffsets = element.points.map((point) => clientY - point.y);
+            setSelectedElement({ ...element, xOffsets, yOffsets });
+          } else {
+            const offsetX = clientX - element.x1;
+            const offsetY = clientY - element.y1;
+            setSelectedElement({ ...element, offsetX, offsetY });
+          }
+          setAction(element.position === "inside" ? "moving" : "resizing");
+        }
       } else {
-        const { id, x1, x2, y1, y2, type, offsetX, offsetY } = selectedElement;
-        const width = x2 - x1;
-        const height = y2 - y1;
-        const newX1 = clientX - offsetX;
-        const newY1 = clientY - offsetY;
+        const id = elements.length;
+        const isStylus = event.pointerType === "pen";
+        const element = createElement(id, clientX, clientY, clientX, clientY, tool, {
+          strokeColor: selectedColor.value,
+          strokeWidth: isStylus ? selectedThickness.value * 1.5 : selectedThickness.value,
+          fillStyle: selectedFillStyle.value,
+          fill: selectedFillStyle.value !== "none" ? selectedFillColor.value : "none",
+        });
+        setElements((prev) => [...prev, element]);
+        setSelectedElement(element);
+        setAction(tool === "text" ? "writing" : "drawing");
+      }
+    },
+    [
+      action,
+      tool,
+      elements,
+      pressedKeys,
+      selectedColor,
+      selectedThickness,
+      selectedFillStyle,
+      selectedFillColor,
+      getCoordinates,
+      setElements,
+    ]
+  );
+
+  // Handle pointer move events
+  const handlePointerMove = useCallback(
+    (event) => {
+      const { clientX, clientY } = getCoordinates(event);
+
+      if (action === "panning") {
+        const deltaX = clientX - startPanMousePosition.x;
+        const deltaY = clientY - startPanMousePosition.y;
+        setPanOffset({
+          x: panOffset.x + deltaX,
+          y: panOffset.y + deltaY,
+        });
+        setStartPanMousePosition({ x: clientX, y: clientY });
+        return;
+      }
+
+      if (tool === "selection") {
+        const element = getElementAtPosition(clientX, clientY, elements);
+        event.target.style.cursor = element ? cursorForPosition(element.position) : "default";
+      }
+
+      if (action === "drawing") {
+        const index = elements.length - 1;
+        const { x1, y1 } = elements[index];
+        updateElement(index, x1, y1, clientX, clientY, tool);
+      } else if (action === "moving") {
+        if (selectedElement.type === "pencil") {
+          const newPoints = selectedElement.points.map((_, index) => ({
+            x: clientX - selectedElement.xOffsets[index],
+            y: clientY - selectedElement.yOffsets[index],
+          }));
+          const elementsCopy = [...elements];
+          elementsCopy[selectedElement.id] = { ...elementsCopy[selectedElement.id], points: newPoints };
+          setElements(elementsCopy, true);
+        } else {
+          const { id, x1, x2, y1, y2, type, offsetX, offsetY } = selectedElement;
+          const width = x2 - x1;
+          const height = y2 - y1;
+          const newX1 = clientX - offsetX;
+          const newY1 = clientY - offsetY;
+          const options = {
+            strokeColor: selectedElement.strokeColor,
+            strokeWidth: selectedElement.strokeWidth,
+            fillStyle: selectedElement.fillStyle,
+            fill: selectedElement.fill,
+            text: selectedElement.text,
+          };
+          updateElement(id, newX1, newY1, newX1 + width, newY1 + height, type, options);
+        }
+      } else if (action === "resizing") {
+        const { id, type, position, ...coordinates } = selectedElement;
+        const { x1, y1, x2, y2 } = resizedCoordinates(clientX, clientY, position, coordinates);
         const options = {
           strokeColor: selectedElement.strokeColor,
           strokeWidth: selectedElement.strokeWidth,
@@ -502,30 +644,30 @@ const FirstBoard = () => {
           fill: selectedElement.fill,
           text: selectedElement.text,
         };
-        updateElement(id, newX1, newY1, newX1 + width, newY1 + height, type, options);
+        updateElement(id, x1, y1, x2, y2, type, options);
       }
-    } else if (action === "resizing") {
-      const { id, type, position, ...coordinates } = selectedElement;
-      const { x1, y1, x2, y2 } = resizedCoordinates(clientX, clientY, position, coordinates);
-      const options = {
-        strokeColor: selectedElement.strokeColor,
-        strokeWidth: selectedElement.strokeWidth,
-        fillStyle: selectedElement.fillStyle,
-        fill: selectedElement.fill,
-        text: selectedElement.text,
-      };
-      updateElement(id, x1, y1, x2, y2, type, options);
-    }
-  };
+    },
+    [
+      action,
+      tool,
+      elements,
+      selectedElement,
+      startPanMousePosition,
+      panOffset,
+      getCoordinates,
+      updateElement,
+      setElements,
+    ]
+  );
 
-  const handlePointerUp = () => {
+  // Handle pointer up events
+  const handlePointerUp = useCallback(() => {
     if (selectedElement) {
       const index = selectedElement.id;
       const { id, type } = elements[index];
       if ((action === "drawing" || action === "resizing") && adjustmentRequired(type)) {
         const { x1, y1, x2, y2 } = adjustElementCoordinates(elements[index]);
-        const options = 
-        {
+        const options = {
           strokeColor: elements[index].strokeColor,
           strokeWidth: elements[index].strokeWidth,
           fillStyle: elements[index].fillStyle,
@@ -539,23 +681,30 @@ const FirstBoard = () => {
       setAction("none");
       setSelectedElement(null);
     }
-  };
+  }, [action, selectedElement, elements, updateElement]);
 
-  const handleBlur = (event) => {
-    const { id, x1, y1, type, strokeColor, strokeWidth, fillStyle, fill } = selectedElement;
-    setAction("none");
-    setSelectedElement(null);
-    updateElement(id, x1, y1, null, null, type, {
-      text: event.target.value,
-      strokeColor,
-      strokeWidth,
-      fillStyle,
-      fill,
-    });
-  };
+  // Handle text area blur
+  const handleBlur = useCallback(
+    (event) => {
+      if (!selectedElement) return;
+      const { id, x1, y1, type, strokeColor, strokeWidth, fillStyle, fill } = selectedElement;
+      setAction("none");
+      setSelectedElement(null);
+      updateElement(id, x1, y1, null, null, type, {
+        text: event.target.value,
+        strokeColor,
+        strokeWidth,
+        fillStyle,
+        fill,
+      });
+    },
+    [selectedElement, updateElement]
+  );
 
-  const saveAsImage = () => {
+  // Save canvas as image
+  const saveAsImage = useCallback(() => {
     const canvas = canvasRef.current;
+    if (!canvas) return;
     const tempCanvas = document.createElement("canvas");
     tempCanvas.width = canvas.width;
     tempCanvas.height = canvas.height;
@@ -567,28 +716,33 @@ const FirstBoard = () => {
     link.download = "drawing.png";
     link.href = tempCanvas.toDataURL("image/png");
     link.click();
-  };
+  }, [pageColor]);
 
-  const saveToDatabase = async () => {
-    // const email = useSelector((state) => state.user.userEmail)
+  // Save drawing to database
+  const saveToDatabase = useCallback(async () => {
+    if (!email) {
+      alert("No user email found. Please log in first.");
+      return;
+    }
+
 
     try {
-      if (!email) {
-        alert("No user email found. Please log in first.");
-        return;
-      }
-      
       const drawingData = {
         elements: elements.map(({ roughElement, ...rest }) => rest),
         name: `KidsDrawing-${Date.now()}`,
-        board:"Board1" , 
+        board: "Board1",
       };
-      let url = `http://localhost:3000/api/drawings/${email}`;
-      let method = "POST";
-      if (drawingId) {
-        url = `http://localhost:3000/api/drawings/${drawingId}/${email}`;
-        method = "PUT";
-      }
+      const url = id
+        ? `http://localhost:3000/api/drawings/${id}/${email}`
+        : `http://localhost:3000/api/drawings/${email}`;
+
+      // const url = `http://localhost:3000/api/drawings/${id}/${email}`
+      const method = id ? "PUT" : "POST";
+      // const method =  "PUT" ; 
+      
+      console.log("Saving to:", url, "Method:", method);
+
+      
       const response = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
@@ -597,7 +751,7 @@ const FirstBoard = () => {
       const result = await response.json();
       if (response.ok) {
         if (!drawingId) setDrawingId(result.id);
-        alert("Yay! Your drawing is saved!");
+        alert("saved successfully");
       } else {
         throw new Error(result.error || "Failed to save drawing");
       }
@@ -605,74 +759,39 @@ const FirstBoard = () => {
       console.error("Error saving drawing:", error);
       alert("Oops! Couldn't save your drawing.");
     }
-  };
+  }, [email, elements, drawingId]);
 
-  const loadFromDatabase = async (id = "67feafe97904e414cabecb3f") => {
-    try {
-      const response = await fetch(`http://localhost:3000/api/drawings/${id}/${email}`);
-      const result = await response.json();
-      if (response.ok) 
-      {
-        setElements(result.elements);
-        setDrawingId(result.id);
-        alert("Cool! Your drawing is loaded!");
-      } 
-      else 
-      {
-        throw new Error(result.error || "Failed to load drawing");
-      }
-    } 
-    catch (error) 
-    {
-      console.error("Error loading drawing:", error);
-      alert("Oops! Couldn't load the drawing.");
-    }
-  };
+  // Toggle magic menu
+  const toggleMagicMenu = () => setMagicMenuOpen((prev) => !prev);
 
-  const toggleMagicMenu = () => setMagicMenuOpen(!magicMenuOpen);
-
-  const handleMagicOption = (option) => {
-    const timestamp = Date.now();
-    let filename;
-    switch (option) {
-      case "Make Image":
-        filename = `image-${timestamp}.png`;
-        break;
-      case "Make Video":
-        filename = `video-screenshot-${timestamp}.png`;
-        break;
-      case "Make Animation":
-        filename = `animation-screenshot-${timestamp}.png`;
-        break;
-      case "Audio":
-        filename = `audio-screenshot-${timestamp}.png`;
-        break;
-      default:
-        filename = `screenshot-${timestamp}.png`;
-    }
-    saveAsImage();
-    setMagicMenuOpen(false);
-    console.log(`Selected: ${option} - Screenshot saved as ${filename}`);
-  };
+  // Handle magic menu options (currently only image saving is implemented)
+  const handleMagicOption = useCallback(
+    (option) => {
+      saveAsImage();
+      setMagicMenuOpen(false);
+      console.log(`Selected: ${option} - Screenshot saved as drawing.png`);
+    },
+    [saveAsImage]
+  );
 
   // YouTube player options
   const playerOptions = {
-    height: '100%',
-    width: '100%',
+    height: "100%",
+    width: "100%",
     playerVars: {
       autoplay: 0,
       controls: 1,
       modestbranding: 1,
       rel: 0,
       fs: 1,
-      origin: window.location.origin
+      origin: window.location.origin,
     },
   };
 
-  // Add scroll event handler
-  const handleVideoSectionScroll = (e) => {
+  // Prevent scroll propagation in video section
+  const handleVideoSectionScroll = useCallback((e) => {
     e.stopPropagation();
-  };
+  }, []);
 
   return (
     <div
@@ -754,7 +873,6 @@ const FirstBoard = () => {
             </svg>
             Words
           </button>
-
           <div className="relative">
             <button
               onClick={() => {
@@ -795,7 +913,6 @@ const FirstBoard = () => {
               </div>
             )}
           </div>
-
           <div className="relative">
             <button
               onClick={() => {
@@ -841,7 +958,6 @@ const FirstBoard = () => {
               </div>
             )}
           </div>
-
           <div className="relative">
             <button
               onClick={() => {
@@ -923,7 +1039,6 @@ const FirstBoard = () => {
               </div>
             )}
           </div>
-
           <button
             onClick={() => setShowGrid(!showGrid)}
             className={`px-4 py-2 rounded-lg text-purple-800 font-bold ${
@@ -935,7 +1050,6 @@ const FirstBoard = () => {
             </svg>
             Grid
           </button>
-
           <input
             type="color"
             value={pageColor || "#ffffff"}
@@ -943,9 +1057,13 @@ const FirstBoard = () => {
             className="w-10 h-10 border-2 border-purple-500 rounded-lg cursor-pointer"
             title="Page Color"
           />
-
           <button
-            onClick={() => setShowVideoSection(!showVideoSection)}
+            onClick={() => {
+              setShowVideoSection(!showVideoSection);
+              if (!showVideoSection && videos.length === 0) {
+                fetchVideos(searchQuery);
+              }
+            }}
             className={`px-4 py-2 rounded-lg text-purple-800 font-bold ${
               showVideoSection ? "bg-red-300" : "bg-red-100"
             } hover:bg-red-200 transition`}
@@ -960,7 +1078,6 @@ const FirstBoard = () => {
             Video
           </button>
         </div>
-
         <div className="flex space-x-2">
           <button
             onClick={undo}
@@ -979,6 +1096,7 @@ const FirstBoard = () => {
           <button
             onClick={redo}
             className="px-4 py-2 font-bold text-purple-800 transition bg-red-100 rounded-lg hover:bg-red-200"
+            // disabled={index >= elements.length}
           >
             <svg className="inline-block w-6 h-6 mr-1" fill="currentColor" viewBox="0 0 20 20">
               <path
@@ -1015,19 +1133,6 @@ const FirstBoard = () => {
             </svg>
             Save
           </button>
-          <button
-            onClick={() => loadFromDatabase("67feafe97904e414cabecb3f")}
-            className="px-4 py-2 font-bold text-purple-800 transition bg-purple-100 rounded-lg hover:bg-purple-200"
-          >
-            <svg className="inline-block w-6 h-6 mr-1" fill="currentColor" viewBox="0 0 20 20">
-              <path
-                fillRule="evenodd"
-                d="M3 3a1 1 0 011-1h12a1 1 0 011 1v14a1 1 0 01-1 1H4a1 1 0 01-1-1V3zm10.293 4.293a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 01-1.414-1.414L14.586 11H7a1 1 0 110-2h7.586l-1.293-1.293a1 1 0 010-1.414z"
-                clipRule="evenodd"
-              />
-            </svg>
-            Load
-          </button>
         </div>
       </div>
 
@@ -1035,13 +1140,12 @@ const FirstBoard = () => {
       {showVideoSection && (
         <div
           className="fixed top-0 right-0 z-30 bg-white shadow-2xl"
-          style={{ 
+          style={{
             width: `${window.innerWidth * 0.35}px`,
-            height: '120vh',
-            top: '2.5vh',
+            height: "100vh",
           }}
         >
-          <div className="relative flex flex-col h-full p-4" onScroll={handleVideoSectionScroll}>
+          <div className="relative flex flex-col h-full p-4" onWheel={handleVideoSectionScroll}>
             <button
               className="absolute text-purple-800 top-2 right-2 hover:text-purple-600"
               onClick={() => {
@@ -1054,15 +1158,13 @@ const FirstBoard = () => {
               </svg>
             </button>
             <h3 className="mb-4 text-2xl font-bold text-purple-800">Fun Videos for Kids!</h3>
-            
-            {/* Search Bar */}
             <div className="flex mb-6">
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
+                  if (e.key === "Enter") {
                     fetchVideos(searchQuery);
                   }
                 }}
@@ -1076,13 +1178,10 @@ const FirstBoard = () => {
                 Search
               </button>
             </div>
-
-            {error && (
-              <p className="mb-4 text-lg text-red-600">{error}</p>
-            )}
+            {error && <p className="mb-4 text-lg text-red-600">{error}</p>}
             {selectedVideoId ? (
               <div className="flex-1">
-                <div className="relative" style={{ paddingBottom: '75%', height: 0 }}>
+                <div className="relative" style={{ paddingBottom: "75%", height: 0 }}>
                   <div className="absolute top-0 left-0 w-full h-full">
                     <YouTube videoId={selectedVideoId} opts={playerOptions} />
                   </div>
@@ -1095,7 +1194,7 @@ const FirstBoard = () => {
                 </button>
               </div>
             ) : (
-              <div className="flex-1 overflow-y-auto" onScroll={handleVideoSectionScroll}>
+              <div className="flex-1 overflow-y-auto" onWheel={handleVideoSectionScroll}>
                 {isLoading ? (
                   <div className="flex flex-col items-center justify-center h-full">
                     <div className="relative w-16 h-16">
@@ -1112,7 +1211,7 @@ const FirstBoard = () => {
                         className="flex flex-col p-4 transition bg-gray-100 rounded-lg cursor-pointer hover:bg-gray-200"
                         onClick={() => setSelectedVideoId(video.id)}
                       >
-                        <div className="relative mb-3" style={{ paddingBottom: '75%' }}>
+                        <div className="relative mb-3" style={{ paddingBottom: "75%" }}>
                           <img
                             src={video.thumbnail}
                             alt={video.title}
@@ -1139,10 +1238,6 @@ const FirstBoard = () => {
           </div>
         </div>
       )}
-
-
-
-
 
       {/* Text Area */}
       {action === "writing" && (
@@ -1207,31 +1302,30 @@ const FirstBoard = () => {
             >
               🖼️ Image
             </button>
+            {/* Placeholder for future implementation */}
             <button
-              className="block w-full px-4 py-2 font-bold text-purple-800 rounded-md hover:bg-yellow-100"
-              onClick={() => handleMagicOption("Make Video")}
+              className="block w-full px-4 py-2 font-bold text-purple-800 rounded-md opacity-50 hover:bg-yellow-100"
+              disabled
             >
               🎥 Video
             </button>
             <button
-              className="block w-full px-4 py-2 font-bold text-purple-800 rounded-md hover:bg-yellow-100"
-              onClick={() => handleMagicOption("Make Animation")}
+              className="block w-full px-4 py-2 font-bold text-purple-800 rounded-md opacity-50 hover:bg-yellow-100"
+              disabled
             >
               🎬 Animation
             </button>
             <button
-              className="block w-full px-4 py-2 font-bold text-purple-800 rounded-md hover:bg-yellow-100"
-              onClick={() => handleMagicOption("Audio")}
+              className="block w-full px-4 py-2 font-bold text-purple-800 rounded-md opacity-50 hover:bg-yellow-100"
+              disabled
             >
               🎵 Audio
             </button>
           </div>
         )}
       </div>
-
-     
     </div>
   );
 };
 
-export default FirstBoard;
+export default DraftCanvas1;
