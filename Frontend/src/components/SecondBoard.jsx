@@ -419,25 +419,25 @@ export default function InfiniteCanvas() {
   };
 
   // Load drawing from database
-  const loadFromDatabase = async (id = "67f95d1452fbc68703c12ed6") => {
-    try {
-      const response = await fetch(`http://localhost:3000/api/drawings/${id}/${userEmail}`);
-      const result = await response.json();
-      if (response.ok) {
-        const loadedElements = regenerateElements(result.elements);
-        setElements(loadedElements);
-        setHistory([loadedElements]);
-        setHistoryIndex(0);
-        setDrawingId(result.id);
-        alert("Drawing loaded successfully!");
-      } else {
-        throw new Error(result.error || "Failed to load drawing");
-      }
-    } catch (error) {
-      console.error("Error loading drawing:", error);
-      alert("Oops! Couldn’t load the drawing.");
-    }
-  };
+  // const loadFromDatabase = async (id = "67f95d1452fbc68703c12ed6") => {
+  //   try {
+  //     const response = await fetch(`http://localhost:3000/api/drawings/${id}/${userEmail}`);
+  //     const result = await response.json();
+  //     if (response.ok) {
+  //       const loadedElements = regenerateElements(result.elements);
+  //       setElements(loadedElements);
+  //       setHistory([loadedElements]);
+  //       setHistoryIndex(0);
+  //       setDrawingId(result.id);
+  //       alert("Drawing loaded successfully!");
+  //     } else {
+  //       throw new Error(result.error || "Failed to load drawing");
+  //     }
+  //   } catch (error) {
+  //     console.error("Error loading drawing:", error);
+  //     alert("Oops! Couldn’t load the drawing.");
+  //   }
+  // };
 
   // Handle mouse down
   const handleMouseDown = (event) => {
@@ -1010,14 +1010,18 @@ export default function InfiniteCanvas() {
           <Download size={28} color="#fff" />
           <span className="block text-xs font-bold text-white">Save</span>
         </button>
-        <button
+
+        
+        {/* <button
           className="p-3 bg-blue-400 rounded-full shadow-md hover:bg-blue-500"
           onClick={() => loadFromDatabase("67f95d1452fbc68703c12ed6")}
           title="Load from Database"
         >
           <span className="text-sm font-bold text-white">Load</span>
-        </button>
+        </button> */}
       </div>
+
+
 
       {/* Cartoon Menu */}
       {cartoonMenuOpen && (

@@ -6,6 +6,7 @@ import { RoughCanvas } from "roughjs/bin/canvas";
 import { useSelector } from "react-redux";
 import { Search, X, ArrowLeft, Youtube } from "lucide-react";
 import YouTube from "react-youtube";
+import { useParams } from "react-router-dom";
 
 
 import {
@@ -47,7 +48,7 @@ const cartoonFigures = [
   },
 ];
 
-export default function InfiniteCanvas() {
+export default function DraftCanvas2() {
   const { userEmail, userPassword } = useSelector((state) => state.user);
   console.log(userEmail, userPassword);
   const canvasRef = useRef(null);
@@ -79,9 +80,16 @@ export default function InfiniteCanvas() {
   const [error, setError] = useState(null);
   const navigate = useNavigate() ;
   
-  const email = useSelector((state) => state.user.userEmail)
-  const password = useSelector((state) => state.user.userPassword);
-
+  const { id } = useParams();
+  
+    
+    const reduxEmail = useSelector((state) => state.user.userEmail);
+    const reduxPassword = useSelector((state) => state.user.userPassword);
+    
+    const email = reduxEmail || localStorage.getItem("email");
+    const password = reduxPassword || localStorage.getItem("password");
+    
+    
   if(!email && !password)
   {
     navigate("/") ; 
@@ -390,8 +398,8 @@ export default function InfiniteCanvas() {
       // console.log(elements) ; 
       let url = `http://localhost:3000/api/drawings/${email}`;
       let method = "POST";
-      if (drawingId) {
-        url = `http://localhost:3000/api/drawings/${drawingId}/${email}`;
+      if (id) {
+        url = `http://localhost:3000/api/drawings/${id}/${email}`;
         method = "PUT";
       }
       const response = await fetch(url, {
@@ -402,7 +410,7 @@ export default function InfiniteCanvas() {
           name: `Drawing-${Date.now()}`,
           userEmail,
           userPassword,
-          board: "Board3",
+          board: "Board2",
         }),
       });
       const result = await response.json();
@@ -418,10 +426,13 @@ export default function InfiniteCanvas() {
     }
   };
 
+
+
+  //*************************************************************************************************** */
   // Load drawing from database
-  const loadFromDatabase = async (id = "67f95d1452fbc68703c12ed6") => {
+  const loadFromDatabase = async () => {
     try {
-      const response = await fetch(`http://localhost:3000/api/drawings/${id}/${userEmail}`);
+      const response = await fetch(`http://localhost:3000/api/drawings/${id}/${email}`);
       const result = await response.json();
       if (response.ok) {
         const loadedElements = regenerateElements(result.elements);
@@ -429,7 +440,7 @@ export default function InfiniteCanvas() {
         setHistory([loadedElements]);
         setHistoryIndex(0);
         setDrawingId(result.id);
-        alert("Drawing loaded successfully!");
+        // alert("Drawing loaded successfully!");
       } else {
         throw new Error(result.error || "Failed to load drawing");
       }
@@ -438,6 +449,15 @@ export default function InfiniteCanvas() {
       alert("Oops! Couldn’t load the drawing.");
     }
   };
+
+    useEffect(() => {
+      if (id && email) {
+        loadFromDatabase();
+      }
+    }, []);
+  
+  
+  
 
   // Handle mouse down
   const handleMouseDown = (event) => {
@@ -1010,13 +1030,13 @@ export default function InfiniteCanvas() {
           <Download size={28} color="#fff" />
           <span className="block text-xs font-bold text-white">Save</span>
         </button>
-        <button
+        {/* <button
           className="p-3 bg-blue-400 rounded-full shadow-md hover:bg-blue-500"
           onClick={() => loadFromDatabase("67f95d1452fbc68703c12ed6")}
           title="Load from Database"
         >
           <span className="text-sm font-bold text-white">Load</span>
-        </button>
+        </button> */}
       </div>
 
       {/* Cartoon Menu */}

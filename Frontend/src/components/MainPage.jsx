@@ -330,13 +330,28 @@ export default function ImaginationBookHome() {
                         <h3 className="text-lg font-bold text-gray-800">{draft.name}</h3>
                         <p className="text-sm text-gray-500">
                                   Last edited: {new Date(draft.updatedAt).toLocaleString()}
+                                  
                         </p>                      
                         </div>
                     </div>
                     <div className="flex space-x-2">
-                      <button className="flex items-center px-6 py-2 text-sm text-white transition-all transform rounded-full shadow-md bg-gradient-to-r from-purple-500 to-pink-500 hover:shadow-lg hover:scale-105"
-                        onClick={() => navigate(`/draft1/${draft._id}`)}
-                      >
+                    <button
+                    className="flex items-center px-6 py-2 text-sm text-white transition-all transform rounded-full shadow-md bg-gradient-to-r from-purple-500 to-pink-500 hover:shadow-lg hover:scale-105"
+                    onClick={() => {
+                      if (draft.board == "Board1") 
+                      {
+                        navigate(`/draft1/${draft._id}`);
+                      } 
+                      else if(draft.board == "Board2") 
+                      {
+                        navigate(`/draft2/${draft._id}`);
+                      }
+                      else
+                      {
+                        navigate(`/draft3/${draft._id}`);
+                      }
+                    }}
+                  >
                         <Zap className="mr-1" size={14} />
                         Continue
                       </button>
