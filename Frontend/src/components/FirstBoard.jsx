@@ -1260,6 +1260,9 @@ const FirstBoard = () => {
             </svg>
             Redo
           </button>
+
+
+          
           <button
             onClick={saveCanvasWithProcessedImage}
             className="px-4 py-2 font-bold text-purple-800 transition bg-green-100 rounded-lg hover:bg-green-200"
@@ -1273,6 +1276,9 @@ const FirstBoard = () => {
             </svg>
             Picture
           </button>
+
+
+          
           <button
             onClick={saveToDatabase}
             className="px-4 py-2 font-bold text-purple-800 transition bg-blue-100 rounded-lg hover:bg-blue-200"

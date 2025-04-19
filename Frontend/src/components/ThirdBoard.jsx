@@ -812,6 +812,74 @@ export default function InfiniteCanvas() {
     }
   };
 
+
+
+  
+  // Save canvas as image
+  const saveCanvasAsImage = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    // Create a temporary canvas to render the content
+    const tempCanvas = document.createElement("canvas");
+    tempCanvas.width = canvas.width;
+    tempCanvas.height = canvas.height;
+    const tempContext = tempCanvas.getContext("2d");
+
+    if (!tempContext) return;
+
+    // Fill background with page color or white
+    tempContext.fillStyle = pageColor || "#ffffff";
+    tempContext.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+
+    // Apply pan and scale transformations
+    tempContext.translate(panOffset.x, panOffset.y);
+    tempContext.scale(scale, scale);
+
+    // Draw all elements
+    elements.forEach((element) => {
+      if (element.type === "pencil") {
+        tempContext.beginPath();
+        tempContext.moveTo(element.points[0].x, element.points[0].y);
+        element.points.forEach((point) => tempContext.lineTo(point.x, point.y));
+        tempContext.strokeStyle = element.strokeColor;
+        tempContext.lineWidth = element.strokeWidth;
+        tempContext.lineCap = "round";
+        tempContext.lineJoin = "round";
+        tempContext.stroke();
+      } else if (element.type === "cartoon" && element.cartoonType) {
+        const img = cartoonImages[element.cartoonType];
+        if (img) {
+          const x = element.points[0].x;
+          const y = element.points[0].y;
+          const width = element.width || 100;
+          const height = element.height || 100;
+          tempContext.drawImage(img, x, y, width, height);
+        }
+      } else if (element.type === "text" && element.text) {
+        tempContext.font = `${element.textSize}px Comic Sans MS`;
+        tempContext.fillStyle = element.strokeColor;
+        tempContext.fillText(element.text, element.points[0].x, element.points[0].y);
+      } else if (element.roughElement) {
+        roughCanvasRef.current.draw(element.roughElement);
+      }
+    });
+
+    // Reset transformations
+    tempContext.scale(1 / scale, 1 / scale);
+    tempContext.translate(-panOffset.x, -panOffset.y);
+
+    // Create download link
+    const link = document.createElement("a");
+    link.download = "drawing.png";
+    link.href = tempCanvas.toDataURL("image/png");
+    link.click();
+
+    showCanvasAlert("Image downloaded successfully!");
+  };
+
+
+
   // Increase stroke width
   const increaseStrokeWidth = () => setStrokeWidth((prev) => Math.min(prev + 1, 10));
 
@@ -1181,10 +1249,10 @@ export default function InfiniteCanvas() {
           </button>
           <button
             className="p-2 transition bg-indigo-100 shadow-md rounded-xl hover:bg-indigo-200"
-            onClick={resetView}
+            onClick={saveCanvasAsImage}
             title="Reset View"
           >
-            <span className="text-xs font-bold text-indigo-800">Reset View</span>
+            <span className="text-xs font-bold text-indigo-800">Picture</span>
           </button>
         </div>
 

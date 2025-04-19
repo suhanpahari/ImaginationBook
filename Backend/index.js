@@ -6,7 +6,7 @@ const DraftCanvas = require('./model/draftCanvas')
 
 
 const app = express() ; 
-const port = 3000 ; 
+const port = process.env.PORT || 3000;
 
 app.use(express.json())
 app.use(express.urlencoded({extended: true}))
@@ -20,7 +20,7 @@ app.use(cors({ origin: "http://localhost:5000" }));
 
 
 
-mongoose.connect("mongodb://localhost:27017/ImaginationBook")
+mongoose.connect("mongodb+srv://prantik:cgx97.-5mqNv9uW@cluster0.eyubvjw.mongodb.net/ImaginationBook")
 .then(() => console.log("Connected to MongoDB"))
 .catch((err) => console.log(err))
 

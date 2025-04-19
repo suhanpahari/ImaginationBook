@@ -89,14 +89,13 @@ export default function InfiniteCanvas() {
   const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY;
   const GROQ_API_URL = import.meta.env.VITE_GROQ_API_URL; 
 
-
   let finalEmail = localStorage.getItem("email") || email;
   let finalPassword = localStorage.getItem("password") || password;
 
   console.log("Final Email:", finalEmail);
   console.log("Final Password:", finalPassword);
 
-  if(!finalEmail && !finalPassword) { 
+  if (!finalEmail && !finalPassword) {
     navigate("/");
   }
 
@@ -157,6 +156,166 @@ export default function InfiniteCanvas() {
     redrawCanvas();
   }, [elements, panOffset, scale, pageColor, videoSectionOpen, videoResults, selectedVideoId, alertMessage]);
 
+
+    // Save canvas as image
+    const saveAsImage = async (filename) => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const tempCanvas = document.createElement("canvas");
+      tempCanvas.width = canvas.width;
+      tempCanvas.height = canvas.height;
+      const tempContext = tempCanvas.getContext("2d");
+      if (!tempContext) return;
+      tempContext.fillStyle = pageColor || "white";
+      tempContext.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+      tempContext.translate(panOffset.x, panOffset.y);
+      tempContext.scale(scale, scale);
+      elements.forEach((element) => {
+        if (element.type === "pencil") {
+          tempContext.beginPath();
+          tempContext.moveTo(element.points[0].x, element.points[0].y);
+          element.points.forEach((point) => tempContext.lineTo(point.x, point.y));
+          tempContext.strokeStyle = element.strokeColor;
+          tempContext.lineWidth = element.strokeWidth;
+          tempContext.lineCap = "round";
+          tempContext.lineJoin = "round";
+          tempContext.stroke();
+        } else if (element.type === "cartoon" && element.cartoonType) {
+          const img = cartoonImages[element.cartoonType];
+          if (img) {
+            const x = element.points[0].x;
+            const y = element.points[0].y;
+            const width = element.width || 100;
+            const height = element.height || 100;
+            tempContext.drawImage(img, x, y, width, height);
+          }
+        } else if (element.type === "text" && element.text) {
+          tempContext.font = `${element.textSize}px Comic Sans MS`;
+          tempContext.fillStyle = element.strokeColor;
+          tempContext.fillText(element.text, element.points[0].x, element.points[0].y);
+        } else if (element.roughElement) {
+          roughCanvasRef.current.draw(element.roughElement);
+        }
+      });
+      tempContext.translate(-panOffset.x, -panOffset.y);
+      tempContext.scale(1 / scale, 1 / scale);
+  
+      const blob = await new Promise((resolve) => {
+        tempCanvas.toBlob((blob) => resolve(blob), "image/png");
+      });
+  
+      const formData = new FormData();
+      formData.append("image", blob, "drawing.png");
+  
+      try {
+        const url = import.meta.env.VITE_NGROK_ENDPOINT || "https://fbd9-34-125-87-16.ngrok-free.app/process";
+        const response = await fetch(url, {
+          method: "POST",
+          body: formData,
+        });
+  
+        const data = await response.json();
+  
+        if (response.ok) {
+          const img = new Image();
+          img.src = `data:image/png;base64,${data.image}`;
+          img.onload = () => {
+            const newElement = createElement(
+              generateId(),
+              0,
+              0,
+              img.width / 2,
+              img.height / 2,
+              "cartoon",
+              null
+            );
+            newElement.cartoonType = `processed-${Date.now()}`;
+            cartoonImages[newElement.cartoonType] = img;
+            newElement.width = img.width / 2;
+            newElement.height = img.height / 2;
+            setElements((prev) => [...prev, newElement]);
+            updateHistory([...elements, newElement]);
+            showCanvasAlert("Yay! Your image has been processed!");
+          };
+        } else {
+          console.error("Error from server:", data.error);
+          showCanvasAlert("Failed to process image!");
+        }
+      } catch (error) {
+        console.error("Network error:", error);
+        showCanvasAlert("Network error while processing image!");
+      }
+    };
+
+
+  
+  // Save canvas as image
+  const saveCanvasAsImage = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    // Create a temporary canvas to render the content
+    const tempCanvas = document.createElement("canvas");
+    tempCanvas.width = canvas.width;
+    tempCanvas.height = canvas.height;
+    const tempContext = tempCanvas.getContext("2d");
+
+    if (!tempContext) return;
+
+    // Fill background with page color or white
+    tempContext.fillStyle = pageColor || "#ffffff";
+    tempContext.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+
+    // Apply pan and scale transformations
+    tempContext.translate(panOffset.x, panOffset.y);
+    tempContext.scale(scale, scale);
+
+    // Draw all elements
+    elements.forEach((element) => {
+      if (element.type === "pencil") {
+        tempContext.beginPath();
+        tempContext.moveTo(element.points[0].x, element.points[0].y);
+        element.points.forEach((point) => tempContext.lineTo(point.x, point.y));
+        tempContext.strokeStyle = element.strokeColor;
+        tempContext.lineWidth = element.strokeWidth;
+        tempContext.lineCap = "round";
+        tempContext.lineJoin = "round";
+        tempContext.stroke();
+      } else if (element.type === "cartoon" && element.cartoonType) {
+        const img = cartoonImages[element.cartoonType];
+        if (img) {
+          const x = element.points[0].x;
+          const y = element.points[0].y;
+          const width = element.width || 100;
+          const height = element.height || 100;
+          tempContext.drawImage(img, x, y, width, height);
+        }
+      } else if (element.type === "text" && element.text) {
+        tempContext.font = `${element.textSize}px Comic Sans MS`;
+        tempContext.fillStyle = element.strokeColor;
+        tempContext.fillText(element.text, element.points[0].x, element.points[0].y);
+      } else if (element.roughElement) {
+        roughCanvasRef.current.draw(element.roughElement);
+      }
+    });
+
+    // Reset transformations
+    tempContext.scale(1 / scale, 1 / scale);
+    tempContext.translate(-panOffset.x, -panOffset.y);
+
+    // Create download link
+    const link = document.createElement("a");
+    link.download = "drawing.png";
+    link.href = tempCanvas.toDataURL("image/png");
+    link.click();
+
+    showCanvasAlert("Image downloaded successfully!");
+  };
+
+
+
+
+  
   // Handle video search using YouTube API
   const handleVideoSearch = async (query) => {
     if (!query) return;
@@ -725,95 +884,8 @@ export default function InfiniteCanvas() {
     setDrawingId(null);
   };
 
-  // Save canvas as image
-  const saveAsImage = async (filename) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const tempCanvas = document.createElement("canvas");
-    tempCanvas.width = canvas.width;
-    tempCanvas.height = canvas.height;
-    const tempContext = tempCanvas.getContext("2d");
-    if (!tempContext) return;
-    tempContext.fillStyle = pageColor || "white";
-    tempContext.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
-    tempContext.translate(panOffset.x, panOffset.y);
-    tempContext.scale(scale, scale);
-    elements.forEach((element) => {
-      if (element.type === "pencil") {
-        tempContext.beginPath();
-        tempContext.moveTo(element.points[0].x, element.points[0].y);
-        element.points.forEach((point) => tempContext.lineTo(point.x, point.y));
-        tempContext.strokeStyle = element.strokeColor;
-        tempContext.lineWidth = element.strokeWidth;
-        tempContext.lineCap = "round";
-        tempContext.lineJoin = "round";
-        tempContext.stroke();
-      } else if (element.type === "cartoon" && element.cartoonType) {
-        const img = cartoonImages[element.cartoonType];
-        if (img) {
-          const x = element.points[0].x;
-          const y = element.points[0].y;
-          const width = element.width || 100;
-          const height = element.height || 100;
-          tempContext.drawImage(img, x, y, width, height);
-        }
-      } else if (element.type === "text" && element.text) {
-        tempContext.font = `${element.textSize}px Comic Sans MS`;
-        tempContext.fillStyle = element.strokeColor;
-        tempContext.fillText(element.text, element.points[0].x, element.points[0].y);
-      } else if (element.roughElement) {
-        roughCanvasRef.current.draw(element.roughElement);
-      }
-    });
-    tempContext.translate(-panOffset.x, -panOffset.y);
-    tempContext.scale(1 / scale, 1 / scale);
-
-    const blob = await new Promise((resolve) => {
-      tempCanvas.toBlob((blob) => resolve(blob), "image/png");
-    });
-
-    const formData = new FormData();
-    formData.append("image", blob, "drawing.png");
-
-    try {
-      const url = import.meta.env.VITE_NGROK_ENDPOINT || "https://fbd9-34-125-87-16.ngrok-free.app/process";
-      const response = await fetch(url, {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        const img = new Image();
-        img.src = `data:image/png;base64,${data.image}`;
-        img.onload = () => {
-          const newElement = createElement(
-            generateId(),
-            0,
-            0,
-            img.width / 2,
-            img.height / 2,
-            "cartoon",
-            null
-          );
-          newElement.cartoonType = `processed-${Date.now()}`;
-          cartoonImages[newElement.cartoonType] = img;
-          newElement.width = img.width / 2;
-          newElement.height = img.height / 2;
-          setElements((prev) => [...prev, newElement]);
-          updateHistory([...elements, newElement]);
-          showCanvasAlert("Yay! Your image has been processed!");
-        };
-      } else {
-        console.error("Error from server:", data.error);
-        showCanvasAlert("Failed to process image!");
-      }
-    } catch (error) {
-      console.error("Network error:", error);
-      showCanvasAlert("Network error while processing image!");
-    }
-  };
+  // Save canvas as image (already defined above)
+  // const saveAsImage = async (filename) => { ... } // This function is replaced by saveCanvasAsImage
 
   // Increase stroke width
   const increaseStrokeWidth = () => setStrokeWidth((prev) => Math.min(prev + 1, 10));
@@ -1101,11 +1173,11 @@ export default function InfiniteCanvas() {
         />
         <button
           className="p-3 bg-white rounded-full shadow-md hover:bg-gray-200"
-          onClick={() => setPageColor("")}
-          title="Reset Page Color"
+          onClick={saveCanvasAsImage}
+          title="Download Image"
         >
           <Palette size={28} color="#333" />
-          <span className="block text-xs font-bold text-purple-800">Reset</span>
+          <span className="block text-xs font-bold text-purple-800">Picture</span>
         </button>
         <div className="w-1 h-8 mx-2 bg-purple-500 rounded-full" />
         <button
@@ -1154,10 +1226,10 @@ export default function InfiniteCanvas() {
         </button>
         <button
           className="p-3 bg-white rounded-full shadow-md hover:bg-green-200"
-          onClick={resetView}
-          title="Reset View"
+          onClick={saveCanvasAsImage}
+          title="Download Image"
         >
-          <span className="text-sm font-bold text-purple-800">Reset</span>
+          <span className="text-sm font-bold text-purple-800">Picture</span>
         </button>
         <div className="w-1 h-8 mx-2 bg-purple-500 rounded-full" />
         <button

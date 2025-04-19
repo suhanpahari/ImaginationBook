@@ -67,17 +67,18 @@ const featured =
   useEffect(() => {
     const fetchDrafts = async () => {
       try {
-        const res = await fetch(`http://localhost:3000/api/draft?email=${finalEmail}`, );
+        const res = await fetch(`http://localhost:3000/api/draft?email=${finalEmail}`);
         const data = await res.json();
-        setDraftItems(data);  
-        // console.log("Drafts fetched:", data); // Debugging line
+        console.log("Fetched drafts:", data); // Confirm data is non-empty
+        setDraftItems(data);
       } catch (err) {
         console.error('Error fetching drafts:', err);
       }
     };
   
-    if (email) fetchDrafts();
+    if (finalEmail) fetchDrafts(); // use finalEmail, not just email
   }, [finalEmail]);
+  
 
   // Predefined avatar options
   const avatarOptions = [

@@ -302,6 +302,13 @@ const DraftCanvas1 = () => {
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState("kids drawing video");
   const [isLoading, setIsLoading] = useState(false);
+  const [processedImage, setProcessedImage] = useState(null);
+  const [canvasBounds, setCanvasBounds] = useState({
+      minX: 0,
+      minY: 0,
+      maxX: window.innerWidth,
+      maxY: window.innerHeight,
+    });
   const textAreaRef = useRef();
   const canvasRef = useRef();
   const pressedKeys = usePressedKeys();
@@ -328,6 +335,82 @@ const password = reduxPassword || localStorage.getItem("password");
     }
   }, [email, password, navigate]);
 
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (canvasRef.current) {
+        canvasRef.current.width = showVideoSection ? window.innerWidth * 0.75 : window.innerWidth;
+        canvasRef.current.height = window.innerHeight;
+      }
+    };
+    window.addEventListener("resize", handleResize);
+    handleResize();
+    return () => window.removeEventListener("resize", handleResize);
+  }, [showVideoSection]);
+
+  
+// Save canvas as image
+const saveAiImage = async () => {
+  const canvas = canvasRef.current;
+  const tempCanvas = document.createElement("canvas");
+  tempCanvas.width = canvas.width;
+  tempCanvas.height = canvas.height;
+  const tempContext = tempCanvas.getContext("2d");
+
+  tempContext.fillStyle = pageColor || "#ffffff";
+  tempContext.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+  tempContext.translate(panOffset.x, panOffset.y);
+  elements.forEach((element) => {
+    drawElement(rough.canvas(tempCanvas), tempContext, element);
+  });
+  if (processedImage) {
+    tempContext.drawImage(
+      processedImage.img,
+      processedImage.x,
+      processedImage.y,
+      processedImage.width,
+      processedImage.height
+    );
+  }
+  tempContext.translate(-panOffset.x, -panOffset.y);
+
+  const blob = await new Promise((resolve) => {
+    tempCanvas.toBlob((blob) => resolve(blob), "image/png");
+  });
+
+  const formData = new FormData();
+  formData.append("image", blob, "drawing.png");
+
+  try {
+    const url = import.meta.env.VITE_NGROK_ENDPOINT || "https://fbd9-34-125-87-16.ngrok-free.app/process";
+    const response = await fetch(url, {
+      method: "POST",
+      body: formData,
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      const img = new Image();
+      img.src = `data:image/png;base64,${data.image}`;
+      img.onload = () => {
+        setProcessedImage({
+          img,
+          x: 0,
+          y: 0,
+          width: img.width / 2,
+          height: img.height / 2,
+        });
+      };
+    } else {
+      console.error("Error from server:", data.error);
+      showCanvasAlert("Failed to process image!");
+    }
+  } catch (error) {
+    console.error("Network error:", error);
+    showCanvasAlert("Network error while processing image!");
+  }
+};
 
 
   
@@ -402,10 +485,18 @@ const password = reduxPassword || localStorage.getItem("password");
     if (!canvas) return;
     const context = canvas.getContext("2d");
     const roughCanvas = rough.canvas(canvas);
-
+  
     // Clear canvas
     context.clearRect(0, 0, canvas.width, canvas.height);
-
+  
+    // Define viewport in virtual space
+    const viewport = {
+      minX: -panOffset.x,
+      minY: -panOffset.y,
+      maxX: -panOffset.x + canvas.width,
+      maxY: -panOffset.y + canvas.height,
+    };
+  
     // Draw grid if enabled
     if (showGrid) {
       context.save();
@@ -413,31 +504,67 @@ const password = reduxPassword || localStorage.getItem("password");
       context.strokeStyle = "#ccc";
       context.lineWidth = 0.5;
       const gridSize = 20;
-      for (let x = -panOffset.x % gridSize; x < canvas.width; x += gridSize) {
+      const gridMinX = Math.max(canvasBounds.minX, viewport.minX - panOffset.x);
+      const gridMaxX = Math.min(canvasBounds.maxX, viewport.maxX - panOffset.x);
+      const gridMinY = Math.max(canvasBounds.minY, viewport.minY - panOffset.y);
+      const gridMaxY = Math.min(canvasBounds.maxY, viewport.maxY - panOffset.y);
+  
+      for (let x = gridMinX - (gridMinX % gridSize); x < gridMaxX; x += gridSize) {
         context.beginPath();
-        context.moveTo(x, 0);
-        context.lineTo(x, canvas.height);
+        context.moveTo(x, gridMinY);
+        context.lineTo(x, gridMaxY);
         context.stroke();
       }
-      for (let y = -panOffset.y % gridSize; y < canvas.height; y += gridSize) {
+      for (let y = gridMinY - (gridMinY % gridSize); y < gridMaxY; y += gridSize) {
         context.beginPath();
-        context.moveTo(0, y);
-        context.lineTo(canvas.width, y);
+        context.moveTo(gridMinX, y);
+        context.lineTo(gridMaxX, y);
         context.stroke();
       }
       context.restore();
     }
-
-    // Draw elements
+  
+    // Draw elements in viewport
     context.save();
     context.translate(panOffset.x, panOffset.y);
     elements.forEach((element) => {
       if (action === "writing" && selectedElement?.id === element.id) return;
-      drawElement(roughCanvas, context, element);
+  
+      // Check if element is in viewport
+      const isInViewport = (() => {
+        if (element.type === "pencil") {
+          return element.points.some(
+            (p) => p.x >= viewport.minX && p.x <= viewport.maxX && p.y >= viewport.minY && p.y <= viewport.maxY
+          );
+        }
+        return (
+          element.x1 <= viewport.maxX &&
+          element.x2 >= viewport.minX &&
+          element.y1 <= viewport.maxY &&
+          element.y2 >= viewport.minY
+        );
+      })();
+  
+      if (isInViewport) {
+        drawElement(roughCanvas, context, element);
+      }
     });
+  
+    // Draw processed image if present
+    if (processedImage) {
+      const { img, x, y, width, height } = processedImage;
+      if (
+        x <= viewport.maxX &&
+        x + width >= viewport.minX &&
+        y <= viewport.maxY &&
+        y + height >= viewport.minY
+      ) {
+        context.drawImage(img, x, y, width, height);
+      }
+    }
+  
     context.restore();
-  }, [elements, action, selectedElement, panOffset, showGrid]);
-
+  }, [elements, action, selectedElement, panOffset, showGrid, canvasBounds, processedImage]);
   // Handle undo/redo keybindings
   useEffect(() => {
     const undoRedoFunction = (event) => {
@@ -497,19 +624,21 @@ const password = reduxPassword || localStorage.getItem("password");
         fill: selectedFillStyle.value !== "none" ? selectedFillColor.value : "none",
         ...options,
       };
-
+  
+      let newElement;
       switch (type) {
         case "line":
         case "rectangle":
-          elementsCopy[id] = createElement(id, x1, y1, x2, y2, type, elementOptions);
+          newElement = createElement(id, x1, y1, x2, y2, type, elementOptions);
           break;
         case "pencil":
           elementsCopy[id].points = [...elementsCopy[id].points, { x: x2, y: y2 }];
+          newElement = elementsCopy[id];
           break;
         case "text":
           const textWidth = canvasRef.current.getContext("2d").measureText(options?.text || "").width;
           const textHeight = options?.strokeWidth || 24;
-          elementsCopy[id] = {
+          newElement = {
             ...createElement(id, x1, y1, x1 + textWidth, y1 + textHeight, type, elementOptions),
             text: options?.text || "",
           };
@@ -517,6 +646,25 @@ const password = reduxPassword || localStorage.getItem("password");
         default:
           throw new Error(`Type not recognised: ${type}`);
       }
+  
+      // Update boundaries
+      const padding = 1000; // Extra space to add when expanding
+      setCanvasBounds((prev) => {
+        const coords = type === "pencil" ? newElement.points : [{ x: x1, y: y1 }, { x: x2, y: y2 }];
+        const minX = Math.min(...coords.map((p) => p.x).filter((x) => x !== null), prev.minX);
+        const minY = Math.min(...coords.map((p) => p.y).filter((y) => y !== null), prev.minY);
+        const maxX = Math.max(...coords.map((p) => p.x).filter((x) => x !== null), prev.maxX);
+        const maxY = Math.max(...coords.map((p) => p.y).filter((y) => y !== null), prev.maxY);
+  
+        return {
+          minX: minX < prev.minX ? minX - padding : prev.minX,
+          minY: minY < prev.minY ? minY - padding : prev.minY,
+          maxX: maxX > prev.maxX ? maxX + padding : prev.maxX,
+          maxY: maxY > prev.maxY ? maxY + padding : prev.maxY,
+        };
+      });
+  
+      elementsCopy[id] = newElement;
       setElements(elementsCopy, true);
     },
     [elements, selectedColor, selectedThickness, selectedFillStyle, selectedFillColor, setElements]
@@ -705,18 +853,70 @@ const password = reduxPassword || localStorage.getItem("password");
   const saveAsImage = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+  
+    // Calculate bounds of all elements
+    const bounds = elements.reduce(
+      (acc, el) => {
+        if (el.type === "pencil") {
+          el.points.forEach((p) => {
+            acc.minX = Math.min(acc.minX, p.x);
+            acc.minY = Math.min(acc.minY, p.y);
+            acc.maxX = Math.max(acc.maxX, p.x);
+            acc.maxY = Math.max(acc.maxY, p.y);
+          });
+        } else {
+          acc.minX = Math.min(acc.minX, el.x1, el.x2);
+          acc.minY = Math.min(acc.minY, el.y1, el.y2);
+          acc.maxX = Math.max(acc.maxX, el.x1, el.x2);
+          acc.maxY = Math.max(acc.maxY, el.y1, el.y2);
+        }
+        return acc;
+      },
+      { minX: 0, minY: 0, maxX: canvas.width, maxY: canvas.height }
+    );
+  
+    // Include processed image in bounds
+    if (processedImage) {
+      bounds.minX = Math.min(bounds.minX, processedImage.x);
+      bounds.minY = Math.min(bounds.minY, processedImage.y);
+      bounds.maxX = Math.max(bounds.maxX, processedImage.x + processedImage.width);
+      bounds.maxY = Math.max(bounds.maxY, processedImage.y + processedImage.height);
+    }
+  
     const tempCanvas = document.createElement("canvas");
-    tempCanvas.width = canvas.width;
-    tempCanvas.height = canvas.height;
+    tempCanvas.width = bounds.maxX - bounds.minX + 100; // Padding
+    tempCanvas.height = bounds.maxY - bounds.minY + 100;
     const tempContext = tempCanvas.getContext("2d");
+  
+    // Fill background
     tempContext.fillStyle = pageColor || "#ffffff";
     tempContext.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
-    tempContext.drawImage(canvas, 0, 0);
+  
+    // Translate to account for negative coordinates
+    tempContext.translate(-bounds.minX + 50, -bounds.minY + 50);
+  
+    // Draw elements
+    const roughCanvas = rough.canvas(tempCanvas);
+    elements.forEach((element) => {
+      drawElement(roughCanvas, tempContext, element);
+    });
+  
+    // Draw processed image
+    if (processedImage) {
+      tempContext.drawImage(
+        processedImage.img,
+        processedImage.x,
+        processedImage.y,
+        processedImage.width,
+        processedImage.height
+      );
+    }
+  
     const link = document.createElement("a");
     link.download = "drawing.png";
     link.href = tempCanvas.toDataURL("image/png");
     link.click();
-  }, [pageColor]);
+  }, [pageColor, elements, processedImage]);
 
   // Save drawing to database
   const saveToDatabase = useCallback(async () => {
@@ -767,7 +967,7 @@ const password = reduxPassword || localStorage.getItem("password");
   // Handle magic menu options (currently only image saving is implemented)
   const handleMagicOption = useCallback(
     (option) => {
-      saveAsImage();
+      saveAiImage();
       setMagicMenuOpen(false);
       console.log(`Selected: ${option} - Screenshot saved as drawing.png`);
     },
@@ -1312,6 +1512,8 @@ const password = reduxPassword || localStorage.getItem("password");
             <button
               className="block w-full px-4 py-2 font-bold text-purple-800 rounded-md opacity-50 hover:bg-yellow-100"
               disabled
+
+              
             >
               🎬 Animation
             </button>
