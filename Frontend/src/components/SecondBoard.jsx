@@ -84,8 +84,10 @@ export default function InfiniteCanvas() {
   const email = useSelector((state) => state.user.userEmail);
   const password = useSelector((state) => state.user.userPassword);
 
-  const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY || "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";
-  const GROQ_API_URL = import.meta.env.VITE_GROQ_API_URL || "https://api.groq.com/openai/v1/audio/transcriptions";
+  // ********************************************************   API KEYS   ********************************************************
+
+  const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY;
+  const GROQ_API_URL = import.meta.env.VITE_GROQ_API_URL; 
 
 
   let finalEmail = localStorage.getItem("email") || email;
