@@ -67,7 +67,7 @@ const featured =
   useEffect(() => {
     const fetchDrafts = async () => {
       try {
-        const res = await fetch(`http://localhost:3000/api/draft?email=${finalEmail}`);
+        const res = await fetch(`https://imaginationbook.onrender.com/api/draft?email=${finalEmail}`);
         const data = await res.json();
         console.log("Fetched drafts:", data); // Confirm data is non-empty
         setDraftItems(data);

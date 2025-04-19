@@ -396,10 +396,10 @@ export default function DraftCanvas2() {
 
       
       // console.log(elements) ; 
-      let url = `http://localhost:3000/api/drawings/${email}`;
+      let url = `https://imaginationbook.onrender.com/api/drawings/${email}`;
       let method = "POST";
       if (id) {
-        url = `http://localhost:3000/api/drawings/${id}/${email}`;
+        url = `https://imaginationbook.onrender.com/api/drawings/${id}/${email}`;
         method = "PUT";
       }
       const response = await fetch(url, {
@@ -432,7 +432,7 @@ export default function DraftCanvas2() {
   // Load drawing from database
   const loadFromDatabase = async () => {
     try {
-      const response = await fetch(`http://localhost:3000/api/drawings/${id}/${email}`);
+      const response = await fetch(`https://imaginationbook.onrender.com/api/drawings/${id}/${email}`);
       const result = await response.json();
       if (response.ok) {
         const loadedElements = regenerateElements(result.elements);

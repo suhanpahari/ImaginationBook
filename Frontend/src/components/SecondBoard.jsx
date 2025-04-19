@@ -564,10 +564,10 @@ export default function InfiniteCanvas() {
         return;
       }
       const cleanElements = elements.map(({ roughElement, ...rest }) => rest);
-      let url = `http://localhost:3000/api/drawings/${email}`;
+      let url = `https://imaginationbook.onrender.com/api/drawings/${email}`;
       let method = "POST";
       if (drawingId) {
-        url = `http://localhost:3000/api/drawings/${drawingId}/${email}`;
+        url = `https://imaginationbook.onrender.com/api/drawings/${drawingId}/${email}`;
         method = "PUT";
       }
       const response = await fetch(url, {

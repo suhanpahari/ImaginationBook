@@ -451,7 +451,7 @@ const saveAiImage = async () => {
   const loadFromDatabase = useCallback(async () => {
     if (!id || !email) return;
     try {
-      const response = await fetch(`http://localhost:3000/api/drawings/${id}/${email}`);
+      const response = await fetch(`https://imaginationbook.onrender.com/api/drawings/${id}/${email}`);
       const result = await response.json();
       if (response.ok) {
         setElements(result.elements || []);
@@ -933,8 +933,8 @@ const saveAiImage = async () => {
         board: "Board1",
       };
       const url = id
-        ? `http://localhost:3000/api/drawings/${id}/${email}`
-        : `http://localhost:3000/api/drawings/${email}`;
+        ? `https://imaginationbook.onrender.com/api/drawings/${id}/${email}`
+        : `https://imaginationbook.onrender.com/api/drawings/${email}`;
 
       // const url = `http://localhost:3000/api/drawings/${id}/${email}`
       const method = id ? "PUT" : "POST";

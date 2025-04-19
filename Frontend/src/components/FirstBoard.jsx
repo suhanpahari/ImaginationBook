@@ -765,10 +765,10 @@ const FirstBoard = () => {
         name: `KidsDrawing-${Date.now()}`,
         board: "Board1",
       };
-      let url = `http://localhost:3000/api/drawings/${finalEmail}`;
+      let url = `https://imaginationbook.onrender.com/api/drawings/${finalEmail}`;
       let method = "POST";
       if (drawingId) {
-        url = `http://localhost:3000/api/drawings/${drawingId}/${finalEmail}`;
+        url = `https://imaginationbook.onrender.com/api/drawings/${drawingId}/${finalEmail}`;
         method = "PUT";
       }
       const response = await fetch(url, {
