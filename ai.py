@@ -8,11 +8,13 @@ from flask import Flask, request, jsonify, render_template_string
 from pyngrok import ngrok, conf
 from diffusers import DiffusionPipeline
 
+load_dotenv()
+
 # Flask app setup
 app = Flask(__name__)
 
 # Set ngrok auth token
-NGROK_AUTH_TOKEN = ""
+NGROK_AUTH_TOKEN = os.getenv("NGROK_AUTH_TOKEN")
 conf.get_default().auth_token = NGROK_AUTH_TOKEN
 
 # Initialize models
@@ -30,7 +32,7 @@ txt2img_pipeline.to(device)
 # Environment variable
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 if not GROQ_API_KEY:
-    GROQ_API_KEY = ""
+    GROQ_API_KEY = getenv("GROQ_API_KEY")
 
 # HTML interface
 HTML_TEMPLATE = """
@@ -332,4 +334,4 @@ if __name__ == "__main__":
     print(f"Add this URL to your webpage button: {public_url}/process")
 
     # Start Flask app
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=6000)

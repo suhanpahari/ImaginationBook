@@ -3,9 +3,8 @@ import rough from "roughjs/bundled/rough.esm";
 import getStroke from "perfect-freehand";
 import axios from "axios";
 import YouTube from "react-youtube";
-import { useSelector, useDispatch } from "react-redux";
+import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
-
 
 const generator = rough.generator();
 
@@ -36,7 +35,7 @@ const fillOptions = [
 ];
 
 const createElement = (id, x1, y1, x2, y2, type, options = {}) => {
-  const { strokeColor = "#000000", strokeWidth = 2, fillStyle = "none", fill = "none" } = options;
+  const { strokeColor = "#000000", strokeWidth = type === "text" ? 36 : 2, fillStyle = "none", fill = "none", text = "" } = options;
   const roughOptions = {
     strokeWidth,
     stroke: strokeColor,
@@ -55,13 +54,27 @@ const createElement = (id, x1, y1, x2, y2, type, options = {}) => {
     case "pencil":
       return { id, type, points: [{ x: x1, y: y1 }], ...options };
     case "text":
-      return { id, type, x1, y1, x2, y2, text: "", ...options };
+      const canvas = document.createElement("canvas");
+      const context = canvas.getContext("2d");
+      context.font = `${strokeWidth}px 'Comic Sans MS', 'Chalkboard', sans-serif`;
+      const textWidth = context.measureText(text).width;
+      const textHeight = strokeWidth;
+      return {
+        id,
+        type,
+        x1,
+        y1,
+        x2: x1 + textWidth,
+        y2: y1 + textHeight,
+        text,
+        strokeColor,
+        strokeWidth,
+      };
     default:
       throw new Error(`Type not recognised: ${type}`);
   }
 };
 
-// Utility functions (unchanged)
 const nearPoint = (x, y, x1, y1, name) => Math.abs(x - x1) < 5 && Math.abs(y - y1) < 5 ? name : null;
 const onLine = (x1, y1, x2, y2, x, y, maxDistance = 1) => {
   const a = { x: x1, y: y1 };
@@ -79,6 +92,7 @@ const positionWithinElement = (x, y, element) => {
       const end = nearPoint(x, y, x2, y2, "end");
       return start || end || on;
     case "rectangle":
+    case "text":
       const topLeft = nearPoint(x, y, x1, y1, "tl");
       const topRight = nearPoint(x, y, x2, y1, "tr");
       const bottomLeft = nearPoint(x, y, x1, y2, "bl");
@@ -92,8 +106,6 @@ const positionWithinElement = (x, y, element) => {
         return onLine(point.x, point.y, nextPoint.x, nextPoint.y, x, y, 5) != null;
       });
       return betweenAnyPoint ? "inside" : null;
-    case "text":
-      return x >= x1 && x <= x2 && y >= y1 && y <= y2 ? "inside" : null;
     default:
       throw new Error(`Type not recognised: ${type}`);
   }
@@ -199,9 +211,12 @@ const drawElement = (roughCanvas, context, element) => {
       break;
     case "text":
       context.textBaseline = "top";
-      context.font = `${element.strokeWidth || 24}px Comic Sans MS`;
+      const fontSize = Math.max(element.strokeWidth || 36, 24);
+      context.font = `${fontSize}px 'Comic Sans MS', 'Chalkboard', sans-serif`;
       context.fillStyle = element.strokeColor || "#000000";
-      context.fillText(element.text, element.x1, element.y1);
+      if (element.text) {
+        context.fillText(element.text, element.x1, element.y1);
+      }
       break;
     default:
       throw new Error(`Type not recognised: ${element.type}`);
@@ -251,21 +266,41 @@ const FirstBoard = () => {
   const [selectedVideoId, setSelectedVideoId] = useState(null);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState("kids educational videos");
+  const [processedImage, setProcessedImage] = useState(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [alertMessage, setAlertMessage] = useState(null);
   const textAreaRef = useRef();
   const canvasRef = useRef();
   const pressedKeys = usePressedKeys();
   const [isLoading, setIsLoading] = useState(false);
-  const navigate = useNavigate() ; 
-  const email = useSelector((state) => state.user.userEmail)
+  const [isRecording, setIsRecording] = useState(false);
+  const [audioBlob, setAudioBlob] = useState(null);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const navigate = useNavigate();
+  const email = useSelector((state) => state.user.userEmail);
   const password = useSelector((state) => state.user.userPassword);
+
+  const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY
+  const GROQ_API_URL = import.meta.env.VITE_GROQ_API_URL 
   
 
-  if(!email && !password)
-  {
-    navigate("/") ; 
+  
+  let finalEmail = localStorage.getItem("email") || email;
+  let finalPassword = localStorage.getItem("password") || password;
+
+  console.log("Final Email:", finalEmail);
+  console.log("Final Password:", finalPassword);
+
+  if(!finalEmail && !finalPassword) { 
+    navigate("/");
   }
-  
-  
+
+  const showCanvasAlert = (message, duration = 3000) => {
+    setAlertMessage(message);
+    setTimeout(() => setAlertMessage(null), duration);
+  };
 
   const fetchVideos = async (query = "Drawing video") => {
     try {
@@ -289,9 +324,7 @@ const FirstBoard = () => {
       }));
       setVideos(videos);
       setError(null);
-    } 
-    catch (err) 
-    {
+    } catch (err) {
       console.error("Error fetching videos:", err);
       setError("Oops! Couldn't load videos. Try again later.");
       setVideos([]);
@@ -334,8 +367,31 @@ const FirstBoard = () => {
       if (action === "writing" && selectedElement?.id === element.id) return;
       drawElement(roughCanvas, context, element);
     });
+
+    if (processedImage) {
+      context.drawImage(
+        processedImage.img,
+        processedImage.x,
+        processedImage.y,
+        processedImage.width,
+        processedImage.height
+      );
+    }
+
+    if (alertMessage) {
+      context.save();
+      context.fillStyle = "rgba(0, 0, 0, 0.8)";
+      context.fillRect(canvas.width / 2 - 150, canvas.height / 2 - 50, 300, 100);
+      context.fillStyle = "#ffffff";
+      context.font = "24px 'Comic Sans MS', 'Chalkboard', sans-serif";
+      context.textAlign = "center";
+      context.textBaseline = "middle";
+      context.fillText(alertMessage, canvas.width / 2, canvas.height / 2);
+      context.restore();
+    }
+
     context.restore();
-  }, [elements, action, selectedElement, panOffset, showGrid]);
+  }, [elements, action, selectedElement, panOffset, showGrid, processedImage, alertMessage]);
 
   useEffect(() => {
     const undoRedoFunction = (event) => {
@@ -380,11 +436,63 @@ const FirstBoard = () => {
     return () => window.removeEventListener("resize", handleResize);
   }, [showVideoSection]);
 
+  const handleMouseDown = (event) => {
+    if (!processedImage || action !== "none") return;
+
+    const { clientX, clientY } = getCoordinates(event);
+    const mouseX = clientX - panOffset.x;
+    const mouseY = clientY - panOffset.y;
+
+    if (
+      mouseX >= processedImage.x &&
+      mouseX <= processedImage.x + processedImage.width &&
+      mouseY >= processedImage.y &&
+      mouseY <= processedImage.y + processedImage.height
+    ) {
+      setIsDragging(true);
+      setDragOffset({
+        x: mouseX - processedImage.x,
+        y: mouseY - processedImage.y,
+      });
+    }
+  };
+
+  const handleMouseMove = (event) => {
+    if (!isDragging || !processedImage) return;
+
+    const { clientX, clientY } = getCoordinates(event);
+    const mouseX = clientX - panOffset.x;
+    const mouseY = clientY - panOffset.y;
+
+    setProcessedImage((prev) => ({
+      ...prev,
+      x: mouseX - dragOffset.x,
+      y: mouseY - dragOffset.y,
+    }));
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    canvas.addEventListener("mousedown", handleMouseDown);
+    canvas.addEventListener("mousemove", handleMouseMove);
+    canvas.addEventListener("mouseup", handleMouseUp);
+
+    return () => {
+      canvas.removeEventListener("mousedown", handleMouseDown);
+      canvas.removeEventListener("mousemove", handleMouseMove);
+      canvas.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [processedImage, isDragging, dragOffset, panOffset]);
+
   const updateElement = (id, x1, y1, x2, y2, type, options) => {
     const elementsCopy = [...elements];
     const elementOptions = {
       strokeColor: selectedColor.value,
-      strokeWidth: selectedThickness.value,
+      strokeWidth: type === "text" ? 36 : selectedThickness.value,
       fillStyle: selectedFillStyle.value,
       fill: selectedFillStyle.value !== "none" ? selectedFillColor.value : "none",
       ...options,
@@ -400,7 +508,7 @@ const FirstBoard = () => {
         break;
       case "text":
         const textWidth = canvasRef.current.getContext("2d").measureText(options?.text || "").width;
-        const textHeight = options?.strokeWidth || 24;
+        const textHeight = elementOptions.strokeWidth || 36;
         elementsCopy[id] = {
           ...createElement(id, x1, y1, x1 + textWidth, y1 + textHeight, type, elementOptions),
           text: options?.text || "",
@@ -447,7 +555,7 @@ const FirstBoard = () => {
       const isStylus = event.pointerType === "pen";
       const element = createElement(id, clientX, clientY, clientX, clientY, tool, {
         strokeColor: selectedColor.value,
-        strokeWidth: isStylus ? selectedThickness.value * 1.5 : selectedThickness.value,
+        strokeWidth: isStylus ? selectedThickness.value * 1.5 : (tool === "text" ? 36 : selectedThickness.value),
         fillStyle: selectedFillStyle.value,
         fill: selectedFillStyle.value !== "none" ? selectedFillColor.value : "none",
       });
@@ -524,8 +632,7 @@ const FirstBoard = () => {
       const { id, type } = elements[index];
       if ((action === "drawing" || action === "resizing") && adjustmentRequired(type)) {
         const { x1, y1, x2, y2 } = adjustElementCoordinates(elements[index]);
-        const options = 
-        {
+        const options = {
           strokeColor: elements[index].strokeColor,
           strokeWidth: elements[index].strokeWidth,
           fillStyle: elements[index].fillStyle,
@@ -554,15 +661,92 @@ const FirstBoard = () => {
     });
   };
 
-  const saveAsImage = () => {
+  const saveAsImage = async () => {
     const canvas = canvasRef.current;
     const tempCanvas = document.createElement("canvas");
     tempCanvas.width = canvas.width;
     tempCanvas.height = canvas.height;
     const tempContext = tempCanvas.getContext("2d");
+
     tempContext.fillStyle = pageColor || "#ffffff";
     tempContext.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
-    tempContext.drawImage(canvas, 0, 0);
+    tempContext.translate(panOffset.x, panOffset.y);
+    elements.forEach((element) => {
+      drawElement(rough.canvas(tempCanvas), tempContext, element);
+    });
+    if (processedImage) {
+      tempContext.drawImage(
+        processedImage.img,
+        processedImage.x,
+        processedImage.y,
+        processedImage.width,
+        processedImage.height
+      );
+    }
+    tempContext.translate(-panOffset.x, -panOffset.y);
+
+    const blob = await new Promise((resolve) => {
+      tempCanvas.toBlob((blob) => resolve(blob), "image/png");
+    });
+
+    const formData = new FormData();
+    formData.append("image", blob, "drawing.png");
+
+    try {
+      const url = import.meta.env.VITE_NGROK_ENDPOINT || "https://fbd9-34-125-87-16.ngrok-free.app/process";
+      const response = await fetch(url, {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        const img = new Image();
+        img.src = `data:image/png;base64,${data.image}`;
+        img.onload = () => {
+          setProcessedImage({
+            img,
+            x: 0,
+            y: 0,
+            width: img.width / 2,
+            height: img.height / 2,
+          });
+        };
+      } else {
+        console.error("Error from server:", data.error);
+        showCanvasAlert("Failed to process image!");
+      }
+    } catch (error) {
+      console.error("Network error:", error);
+      showCanvasAlert("Network error while processing image!");
+    }
+  };
+
+  const saveCanvasWithProcessedImage = () => {
+    const canvas = canvasRef.current;
+    const tempCanvas = document.createElement("canvas");
+    tempCanvas.width = canvas.width;
+    tempCanvas.height = canvas.height;
+    const tempContext = tempCanvas.getContext("2d");
+
+    tempContext.fillStyle = pageColor || "#ffffff";
+    tempContext.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+    tempContext.translate(panOffset.x, panOffset.y);
+    elements.forEach((element) => {
+      drawElement(rough.canvas(tempCanvas), tempContext, element);
+    });
+    if (processedImage) {
+      tempContext.drawImage(
+        processedImage.img,
+        processedImage.x,
+        processedImage.y,
+        processedImage.width,
+        processedImage.height
+      );
+    }
+    tempContext.translate(-panOffset.x, -panOffset.y);
+
     const link = document.createElement("a");
     link.download = "drawing.png";
     link.href = tempCanvas.toDataURL("image/png");
@@ -570,23 +754,21 @@ const FirstBoard = () => {
   };
 
   const saveToDatabase = async () => {
-    // const email = useSelector((state) => state.user.userEmail)
-
     try {
-      if (!email) {
-        alert("No user email found. Please log in first.");
+      if (!finalEmail) {
+        showCanvasAlert("No user email found. Please log in first!");
         return;
       }
-      
+
       const drawingData = {
         elements: elements.map(({ roughElement, ...rest }) => rest),
         name: `KidsDrawing-${Date.now()}`,
-        board:"Board1" , 
+        board: "Board1",
       };
-      let url = `http://localhost:3000/api/drawings/${email}`;
+      let url = `http://localhost:3000/api/drawings/${finalEmail}`;
       let method = "POST";
       if (drawingId) {
-        url = `http://localhost:3000/api/drawings/${drawingId}/${email}`;
+        url = `http://localhost:3000/api/drawings/${drawingId}/${finalEmail}`;
         method = "PUT";
       }
       const response = await fetch(url, {
@@ -597,46 +779,127 @@ const FirstBoard = () => {
       const result = await response.json();
       if (response.ok) {
         if (!drawingId) setDrawingId(result.id);
-        alert("Yay! Your drawing is saved!");
+        showCanvasAlert("Yay! Your drawing is saved!");
       } else {
         throw new Error(result.error || "Failed to save drawing");
       }
     } catch (error) {
       console.error("Error saving drawing:", error);
-      alert("Oops! Couldn't save your drawing.");
+      showCanvasAlert("Oops! Couldn't save your drawing!");
     }
   };
 
-  const loadFromDatabase = async (id = "67feafe97904e414cabecb3f") => {
-    try {
-      const response = await fetch(`http://localhost:3000/api/drawings/${id}/${email}`);
-      const result = await response.json();
-      if (response.ok) 
-      {
-        setElements(result.elements);
-        setDrawingId(result.id);
-        alert("Cool! Your drawing is loaded!");
-      } 
-      else 
-      {
-        throw new Error(result.error || "Failed to load drawing");
-      }
-    } 
-    catch (error) 
-    {
-      console.error("Error loading drawing:", error);
-      alert("Oops! Couldn't load the drawing.");
-    }
-  };
+  // const loadFromDatabase = async (id = "67feafe97904e414cabecb3f") => {
+  //   try {
+  //     const response = await fetch(`http://localhost:3000/api/drawings/${id}/${email}`);
+  //     const result = await response.json();
+  //     if (response.ok) {
+  //       setElements(result.elements);
+  //       setDrawingId(result.id);
+  //       showCanvasAlert("Cool! Your drawing is loaded!");
+  //     } else {
+  //       throw new Error(result.error || "Failed to load drawing");
+  //     }
+  //   } catch (error) {
+  //     console.error("Error loading drawing:", error);
+  //     showCanvasAlert("Oops! Couldn't load the drawing!");
+  //   }
+  // };
 
   const toggleMagicMenu = () => setMagicMenuOpen(!magicMenuOpen);
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorderRef.current = new MediaRecorder(stream);
+      audioChunksRef.current = [];
+
+      mediaRecorderRef.current.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorderRef.current.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        setAudioBlob(audioBlob);
+        processAudio(audioBlob);
+        stream.getTracks().forEach((track) => track.stop());
+      };
+
+      mediaRecorderRef.current.start();
+      setIsRecording(true);
+    } catch (error) {
+      console.error("Error starting recording:", error);
+      showCanvasAlert("Couldn't start recording. Please allow microphone access!");
+      setIsRecording(false);
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  };
+
+  const processAudio = async (audioBlob) => {
+    if (!audioBlob) return;
+
+    setIsLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", audioBlob, "recording.webm");
+      formData.append("model", "whisper-large-v3");
+      formData.append("response_format", "json");
+
+      const response = await axios.post(GROQ_API_URL, formData, {
+        headers: {
+          Authorization: `Bearer ${GROQ_API_KEY}`,
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      console.log("API Response:", response.data);
+      const transcription = response.data.text || response.data.transcription;
+      if (transcription) {
+        const id = elements.length;
+        const x1 = 100 - panOffset.x;
+        const y1 = 100 - panOffset.y;
+        const textElement = createElement(id, x1, y1, x1, y1, "text", {
+          strokeColor: selectedColor.value,
+          strokeWidth: 36,
+          text: transcription,
+        });
+        console.log("Text element:", textElement);
+        setElements((prev) => {
+          const newElements = [...prev, textElement];
+          console.log("Updated elements:", newElements);
+          return newElements;
+        });
+        setAction("none");
+        setSelectedElement(null);
+        showCanvasAlert("Yay! Your audio has been transcribed!");
+      } else {
+        throw new Error("No transcription returned");
+      }
+    } catch (error) {
+      console.error("Error processing audio:", error);
+      showCanvasAlert("Oops! Couldn't transcribe the audio!");
+    } finally {
+      setIsLoading(false);
+      setAudioBlob(null);
+    }
+  };
 
   const handleMagicOption = (option) => {
     const timestamp = Date.now();
     let filename;
+
     switch (option) {
       case "Make Image":
         filename = `image-${timestamp}.png`;
+        saveAsImage();
         break;
       case "Make Video":
         filename = `video-screenshot-${timestamp}.png`;
@@ -646,30 +909,33 @@ const FirstBoard = () => {
         break;
       case "Audio":
         filename = `audio-screenshot-${timestamp}.png`;
+        if (!isRecording) {
+          startRecording();
+        } else {
+          stopRecording();
+        }
         break;
       default:
         filename = `screenshot-${timestamp}.png`;
     }
-    saveAsImage();
+
     setMagicMenuOpen(false);
-    console.log(`Selected: ${option} - Screenshot saved as ${filename}`);
+    console.log(`Selected: ${option} -  saved as ${filename}`);
   };
 
-  // YouTube player options
   const playerOptions = {
-    height: '100%',
-    width: '100%',
+    height: "100%",
+    width: "100%",
     playerVars: {
       autoplay: 0,
       controls: 1,
       modestbranding: 1,
       rel: 0,
       fs: 1,
-      origin: window.location.origin
+      origin: window.location.origin,
     },
   };
 
-  // Add scroll event handler
   const handleVideoSectionScroll = (e) => {
     e.stopPropagation();
   };
@@ -679,7 +945,6 @@ const FirstBoard = () => {
       className="w-screen h-screen overflow-hidden font-[Comic Sans MS]"
       style={{ background: pageColor || "linear-gradient(to-br, #fefcbf, #fed7aa, #f3e8ff)" }}
     >
-      {/* Toolbar */}
       <div
         className="fixed z-10 flex items-center justify-between p-4 bg-yellow-200 shadow-lg top-4 left-4 rounded-xl"
         style={{
@@ -709,10 +974,13 @@ const FirstBoard = () => {
             } hover:bg-green-200 transition`}
           >
             <svg className="inline-block w-6 h-6 mr-1" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+              <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793z" />
+              <path d="M11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
             </svg>
             Draw
           </button>
+
+          
           <button
             onClick={() => setTool("line")}
             className={`px-4 py-2 rounded-lg text-purple-800 font-bold ${
@@ -724,6 +992,9 @@ const FirstBoard = () => {
             </svg>
             Line
           </button>
+
+
+          
           <button
             onClick={() => setTool("rectangle")}
             className={`px-4 py-2 rounded-lg text-purple-800 font-bold ${
@@ -990,7 +1261,7 @@ const FirstBoard = () => {
             Redo
           </button>
           <button
-            onClick={saveAsImage}
+            onClick={saveCanvasWithProcessedImage}
             className="px-4 py-2 font-bold text-purple-800 transition bg-green-100 rounded-lg hover:bg-green-200"
           >
             <svg className="inline-block w-6 h-6 mr-1" fill="currentColor" viewBox="0 0 20 20">
@@ -1015,7 +1286,7 @@ const FirstBoard = () => {
             </svg>
             Save
           </button>
-          <button
+          {/* <button
             onClick={() => loadFromDatabase("67feafe97904e414cabecb3f")}
             className="px-4 py-2 font-bold text-purple-800 transition bg-purple-100 rounded-lg hover:bg-purple-200"
           >
@@ -1027,18 +1298,17 @@ const FirstBoard = () => {
               />
             </svg>
             Load
-          </button>
+          </button> */}
         </div>
       </div>
 
-      {/* Video Section */}
       {showVideoSection && (
         <div
           className="fixed top-0 right-0 z-30 bg-white shadow-2xl"
-          style={{ 
+          style={{
             width: `${window.innerWidth * 0.35}px`,
-            height: '120vh',
-            top: '2.5vh',
+            height: "120vh",
+            top: "2.5vh",
           }}
         >
           <div className="relative flex flex-col h-full p-4" onScroll={handleVideoSectionScroll}>
@@ -1054,15 +1324,14 @@ const FirstBoard = () => {
               </svg>
             </button>
             <h3 className="mb-4 text-2xl font-bold text-purple-800">Fun Videos for Kids!</h3>
-            
-            {/* Search Bar */}
+
             <div className="flex mb-6">
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
+                  if (e.key === "Enter") {
                     fetchVideos(searchQuery);
                   }
                 }}
@@ -1077,12 +1346,10 @@ const FirstBoard = () => {
               </button>
             </div>
 
-            {error && (
-              <p className="mb-4 text-lg text-red-600">{error}</p>
-            )}
+            {error && <p className="mb-4 text-lg text-red-600">{error}</p>}
             {selectedVideoId ? (
               <div className="flex-1">
-                <div className="relative" style={{ paddingBottom: '75%', height: 0 }}>
+                <div className="relative" style={{ paddingBottom: "75%", height: 0 }}>
                   <div className="absolute top-0 left-0 w-full h-full">
                     <YouTube videoId={selectedVideoId} opts={playerOptions} />
                   </div>
@@ -1112,7 +1379,7 @@ const FirstBoard = () => {
                         className="flex flex-col p-4 transition bg-gray-100 rounded-lg cursor-pointer hover:bg-gray-200"
                         onClick={() => setSelectedVideoId(video.id)}
                       >
-                        <div className="relative mb-3" style={{ paddingBottom: '75%' }}>
+                        <div className="relative mb-3" style={{ paddingBottom: "75%" }}>
                           <img
                             src={video.thumbnail}
                             alt={video.title}
@@ -1140,11 +1407,6 @@ const FirstBoard = () => {
         </div>
       )}
 
-
-
-
-
-      {/* Text Area */}
       {action === "writing" && (
         <textarea
           ref={textAreaRef}
@@ -1153,7 +1415,7 @@ const FirstBoard = () => {
             position: "fixed",
             top: selectedElement.y1 - 2 + panOffset.y,
             left: selectedElement.x1 + panOffset.x,
-            font: `${selectedElement.strokeWidth || 24}px Comic Sans MS`,
+            font: `${selectedElement.strokeWidth || 36}px 'Comic Sans MS', 'Chalkboard', sans-serif`,
             color: selectedElement.strokeColor || "#000000",
             margin: 0,
             padding: "4px",
@@ -1171,7 +1433,6 @@ const FirstBoard = () => {
         />
       )}
 
-      {/* Canvas */}
       <canvas
         ref={canvasRef}
         id="canvas"
@@ -1185,7 +1446,6 @@ const FirstBoard = () => {
         }}
       />
 
-      {/* Floating Magic Button */}
       <div
         className="absolute bottom-10"
         style={{
@@ -1223,13 +1483,48 @@ const FirstBoard = () => {
               className="block w-full px-4 py-2 font-bold text-purple-800 rounded-md hover:bg-yellow-100"
               onClick={() => handleMagicOption("Audio")}
             >
-              🎵 Audio
+              {isRecording ? "🎤 Stop Recording" : "🎵 Record Audio"}
             </button>
           </div>
         )}
       </div>
 
-     
+      {isRecording && (
+        <div className="fixed z-50 flex flex-col items-center bottom-28 right-10">
+          <div className="relative flex items-center justify-center w-20 h-20">
+            <div className="absolute w-20 h-20 bg-red-200 rounded-full opacity-75 animate-ping"></div>
+            <svg
+              className="w-12 h-12 text-red-600"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+            >
+              <path
+                fillRule="evenodd"
+                d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm-1.5 4a4.5 4.5 0 019 0V8c0 2.485 2.015 4.5 4.5 4.5h.5a1 1 0 110 2h-.5A6.5 6.5 0 013 8V8a4.5 4.5 0 01-1.5-8z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </div>
+          <button
+            onClick={stopRecording}
+            className="px-4 py-2 mt-4 font-bold text-white transition bg-red-500 rounded-lg hover:bg-red-600"
+          >
+            Stop Recording
+          </button>
+        </div>
+      )}
+
+      {isLoading && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="flex flex-col items-center justify-center">
+            <div className="relative w-16 h-16">
+              <div className="absolute w-16 h-16 border-4 border-purple-200 rounded-full"></div>
+              <div className="absolute w-16 h-16 border-4 border-purple-500 rounded-full border-t-transparent animate-spin"></div>
+            </div>
+            <p className="mt-4 text-lg font-semibold text-white">Processing your audio...</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

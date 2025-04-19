@@ -300,14 +300,14 @@ const DraftCanvas1 = () => {
   const [videos, setVideos] = useState([]);
   const [selectedVideoId, setSelectedVideoId] = useState(null);
   const [error, setError] = useState(null);
-  const [searchQuery, setSearchQuery] = useState("kids educational videos");
+  const [searchQuery, setSearchQuery] = useState("kids drawing video");
   const [isLoading, setIsLoading] = useState(false);
   const textAreaRef = useRef();
   const canvasRef = useRef();
   const pressedKeys = usePressedKeys();
 
   
-  const reduxEmail = useSelector((state) => state.user.userEmail);
+const reduxEmail = useSelector((state) => state.user.userEmail);
 const reduxPassword = useSelector((state) => state.user.userPassword);
 
 const email = reduxEmail || localStorage.getItem("email");
@@ -318,9 +318,9 @@ const password = reduxPassword || localStorage.getItem("password");
   // Id identify from parameter
   const { id } = useParams();
 
-    console.log(id); 
-    console.log(email);
-    console.log(password) ;
+    // console.log(id); 
+    // console.log(email);
+    // console.log(password) ;
   // Redirect to login if not authenticated
   useEffect(() => {
     if(!email && !password) {

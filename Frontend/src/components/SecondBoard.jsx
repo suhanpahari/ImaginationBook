@@ -1,13 +1,10 @@
 "use client";
 
-import React from "react";
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { RoughCanvas } from "roughjs/bin/canvas";
 import { useSelector } from "react-redux";
-import { Search, X, ArrowLeft, Youtube } from "lucide-react";
+import { Search, X, Youtube } from "lucide-react";
 import YouTube from "react-youtube";
-
-
 import {
   Pencil,
   Square,
@@ -27,6 +24,7 @@ import {
   Eraser,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 
 // Cartoon figures data
 const cartoonFigures = [
@@ -49,7 +47,6 @@ const cartoonFigures = [
 
 export default function InfiniteCanvas() {
   const { userEmail, userPassword } = useSelector((state) => state.user);
-  console.log(userEmail, userPassword);
   const canvasRef = useRef(null);
   const roughCanvasRef = useRef(null);
   const [elements, setElements] = useState([]);
@@ -75,20 +72,37 @@ export default function InfiniteCanvas() {
   const [videoSearchQuery, setVideoSearchQuery] = useState("");
   const [videoResults, setVideoResults] = useState([]);
   const [selectedVideoId, setSelectedVideoId] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
-  const navigate = useNavigate() ;
-  
-  const email = useSelector((state) => state.user.userEmail)
+  const [isLoading, setIsLoading] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [audioBlob, setAudioBlob] = useState(null);
+  const [alertMessage, setAlertMessage] = useState(null);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const navigate = useNavigate();
+
+  const email = useSelector((state) => state.user.userEmail);
   const password = useSelector((state) => state.user.userPassword);
 
-  if(!email && !password)
-  {
-    navigate("/") ; 
+  const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY || "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";
+  const GROQ_API_URL = import.meta.env.VITE_GROQ_API_URL || "https://api.groq.com/openai/v1/audio/transcriptions";
+
+
+  let finalEmail = localStorage.getItem("email") || email;
+  let finalPassword = localStorage.getItem("password") || password;
+
+  console.log("Final Email:", finalEmail);
+  console.log("Final Password:", finalPassword);
+
+  if(!finalEmail && !finalPassword) { 
+    navigate("/");
   }
 
+  const showCanvasAlert = (message, duration = 3000) => {
+    setAlertMessage(message);
+    setTimeout(() => setAlertMessage(null), duration);
+  };
 
-  
   // YouTube player options
   const playerOptions = {
     height: "100%",
@@ -136,10 +150,10 @@ export default function InfiniteCanvas() {
     return () => window.removeEventListener("resize", resizeCanvas);
   }, [videoSectionOpen]);
 
-  // Redraw canvas when elements or video section changes
+  // Redraw canvas when elements or other dependencies change
   useEffect(() => {
     redrawCanvas();
-  }, [elements, panOffset, scale, pageColor, videoSectionOpen, videoResults, selectedVideoId]);
+  }, [elements, panOffset, scale, pageColor, videoSectionOpen, videoResults, selectedVideoId, alertMessage]);
 
   // Handle video search using YouTube API
   const handleVideoSearch = async (query) => {
@@ -147,7 +161,7 @@ export default function InfiniteCanvas() {
     try {
       setIsLoading(true);
       setError(null);
-      const apiKey = import.meta.env.VITE_YOUTUBE_API_KEY || "YOUR_YOUTUBE_API_KEY"; // Replace with your API key
+      const apiKey = import.meta.env.VITE_YOUTUBE_API_KEY;
       const response = await fetch(
         `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=50&q=${encodeURIComponent(
           query
@@ -384,10 +398,11 @@ export default function InfiniteCanvas() {
   // Save drawing to database
   const saveToDatabase = async () => {
     try {
+      if (!email) {
+        showCanvasAlert("No user email found. Please log in first!");
+        return;
+      }
       const cleanElements = elements.map(({ roughElement, ...rest }) => rest);
-
-      
-      // console.log(elements) ; 
       let url = `http://localhost:3000/api/drawings/${email}`;
       let method = "POST";
       if (drawingId) {
@@ -408,36 +423,15 @@ export default function InfiniteCanvas() {
       const result = await response.json();
       if (response.ok) {
         if (!drawingId) setDrawingId(result.id);
-        alert("Drawing saved successfully!");
+        showCanvasAlert("Yay! Your drawing is saved!");
       } else {
         throw new Error(result.error || "Failed to save drawing");
       }
     } catch (error) {
       console.error("Error saving drawing:", error);
-      alert("Oops! Couldn’t save your drawing.");
+      showCanvasAlert("Oops! Couldn't save your drawing!");
     }
   };
-
-  // Load drawing from database
-  // const loadFromDatabase = async (id = "67f95d1452fbc68703c12ed6") => {
-  //   try {
-  //     const response = await fetch(`http://localhost:3000/api/drawings/${id}/${userEmail}`);
-  //     const result = await response.json();
-  //     if (response.ok) {
-  //       const loadedElements = regenerateElements(result.elements);
-  //       setElements(loadedElements);
-  //       setHistory([loadedElements]);
-  //       setHistoryIndex(0);
-  //       setDrawingId(result.id);
-  //       alert("Drawing loaded successfully!");
-  //     } else {
-  //       throw new Error(result.error || "Failed to load drawing");
-  //     }
-  //   } catch (error) {
-  //     console.error("Error loading drawing:", error);
-  //     alert("Oops! Couldn’t load the drawing.");
-  //   }
-  // };
 
   // Handle mouse down
   const handleMouseDown = (event) => {
@@ -690,6 +684,24 @@ export default function InfiniteCanvas() {
     }
 
     context.restore();
+
+    // Draw alert message in top-right corner if present
+    if (alertMessage) {
+      context.save();
+      const alertWidth = 300;
+      const alertHeight = 100;
+      const margin = 20;
+      const x = (canvas.width - alertWidth - margin) / scale;
+      const y = margin / scale;
+      context.fillStyle = "rgba(0, 0, 0, 0.8)";
+      context.fillRect(x, y, alertWidth / scale, alertHeight / scale);
+      context.fillStyle = "#ffffff";
+      context.font = `${24 / scale}px Comic Sans MS`;
+      context.textAlign = "center";
+      context.textBaseline = "middle";
+      context.fillText(alertMessage, x + alertWidth / scale / 2, y + alertHeight / scale / 2);
+      context.restore();
+    }
   };
 
   // Zoom in
@@ -712,7 +724,7 @@ export default function InfiniteCanvas() {
   };
 
   // Save canvas as image
-  const saveAsImage = (filename) => {
+  const saveAsImage = async (filename) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const tempCanvas = document.createElement("canvas");
@@ -722,11 +734,83 @@ export default function InfiniteCanvas() {
     if (!tempContext) return;
     tempContext.fillStyle = pageColor || "white";
     tempContext.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
-    tempContext.drawImage(canvas, 0, 0);
-    const link = document.createElement("a");
-    link.download = filename || "infinite-canvas-drawing.png";
-    link.href = tempCanvas.toDataURL("image/png");
-    link.click();
+    tempContext.translate(panOffset.x, panOffset.y);
+    tempContext.scale(scale, scale);
+    elements.forEach((element) => {
+      if (element.type === "pencil") {
+        tempContext.beginPath();
+        tempContext.moveTo(element.points[0].x, element.points[0].y);
+        element.points.forEach((point) => tempContext.lineTo(point.x, point.y));
+        tempContext.strokeStyle = element.strokeColor;
+        tempContext.lineWidth = element.strokeWidth;
+        tempContext.lineCap = "round";
+        tempContext.lineJoin = "round";
+        tempContext.stroke();
+      } else if (element.type === "cartoon" && element.cartoonType) {
+        const img = cartoonImages[element.cartoonType];
+        if (img) {
+          const x = element.points[0].x;
+          const y = element.points[0].y;
+          const width = element.width || 100;
+          const height = element.height || 100;
+          tempContext.drawImage(img, x, y, width, height);
+        }
+      } else if (element.type === "text" && element.text) {
+        tempContext.font = `${element.textSize}px Comic Sans MS`;
+        tempContext.fillStyle = element.strokeColor;
+        tempContext.fillText(element.text, element.points[0].x, element.points[0].y);
+      } else if (element.roughElement) {
+        roughCanvasRef.current.draw(element.roughElement);
+      }
+    });
+    tempContext.translate(-panOffset.x, -panOffset.y);
+    tempContext.scale(1 / scale, 1 / scale);
+
+    const blob = await new Promise((resolve) => {
+      tempCanvas.toBlob((blob) => resolve(blob), "image/png");
+    });
+
+    const formData = new FormData();
+    formData.append("image", blob, "drawing.png");
+
+    try {
+      const url = import.meta.env.VITE_NGROK_ENDPOINT || "https://fbd9-34-125-87-16.ngrok-free.app/process";
+      const response = await fetch(url, {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        const img = new Image();
+        img.src = `data:image/png;base64,${data.image}`;
+        img.onload = () => {
+          const newElement = createElement(
+            generateId(),
+            0,
+            0,
+            img.width / 2,
+            img.height / 2,
+            "cartoon",
+            null
+          );
+          newElement.cartoonType = `processed-${Date.now()}`;
+          cartoonImages[newElement.cartoonType] = img;
+          newElement.width = img.width / 2;
+          newElement.height = img.height / 2;
+          setElements((prev) => [...prev, newElement]);
+          updateHistory([...elements, newElement]);
+          showCanvasAlert("Yay! Your image has been processed!");
+        };
+      } else {
+        console.error("Error from server:", data.error);
+        showCanvasAlert("Failed to process image!");
+      }
+    } catch (error) {
+      console.error("Network error:", error);
+      showCanvasAlert("Network error while processing image!");
+    }
   };
 
   // Increase stroke width
@@ -754,13 +838,89 @@ export default function InfiniteCanvas() {
   // Toggle magic menu
   const toggleMagicMenu = () => setMagicMenuOpen(!magicMenuOpen);
 
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorderRef.current = new MediaRecorder(stream);
+      audioChunksRef.current = [];
+
+      mediaRecorderRef.current.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorderRef.current.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        setAudioBlob(audioBlob);
+        processAudio(audioBlob);
+        stream.getTracks().forEach((track) => track.stop());
+      };
+
+      mediaRecorderRef.current.start();
+      setIsRecording(true);
+    } catch (error) {
+      console.error("Error starting recording:", error);
+      showCanvasAlert("Couldn't start recording. Please allow microphone access!");
+      setIsRecording(false);
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  };
+
+  const processAudio = async (audioBlob) => {
+    if (!audioBlob) return;
+
+    setIsLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", audioBlob, "recording.webm");
+      formData.append("model", "whisper-large-v3");
+      formData.append("response_format", "json");
+
+      const response = await axios.post(GROQ_API_URL, formData, {
+        headers: {
+          Authorization: `Bearer ${GROQ_API_KEY}`,
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      const transcription = response.data.text || response.data.transcription;
+      if (transcription) {
+        const id = generateId();
+        const canvas = canvasRef.current;
+        const centerX = (canvas.width / 2 - panOffset.x) / scale;
+        const centerY = (canvas.height / 2 - panOffset.y) / scale;
+        const textElement = createElement(id, centerX, centerY, centerX, centerY, "text", null, transcription);
+        setElements((prev) => [...prev, textElement]);
+        updateHistory([...elements, textElement]);
+        showCanvasAlert("Yay! Your audio has been transcribed!");
+      } else {
+        throw new Error("No transcription returned");
+      }
+    } catch (error) {
+      console.error("Error processing audio:", error);
+      showCanvasAlert("Oops! Couldn't transcribe the audio!");
+    } finally {
+      setIsLoading(false);
+      setAudioBlob(null);
+    }
+  };
+
   // Magic button options with screenshot
   const handleMagicOption = (option) => {
     const timestamp = Date.now();
     let filename;
+
     switch (option) {
       case "Make Image":
         filename = `image-${timestamp}.png`;
+        saveAsImage(filename);
         break;
       case "Make Video":
         filename = `video-screenshot-${timestamp}.png`;
@@ -770,11 +930,16 @@ export default function InfiniteCanvas() {
         break;
       case "Audio":
         filename = `audio-screenshot-${timestamp}.png`;
+        if (!isRecording) {
+          startRecording();
+        } else {
+          stopRecording();
+        }
         break;
       default:
         filename = `screenshot-${timestamp}.png`;
     }
-    saveAsImage(filename);
+
     setMagicMenuOpen(false);
     console.log(`Selected: ${option} - Screenshot saved as ${filename}`);
   };
@@ -941,7 +1106,6 @@ export default function InfiniteCanvas() {
           <span className="block text-xs font-bold text-purple-800">Reset</span>
         </button>
         <div className="w-1 h-8 mx-2 bg-purple-500 rounded-full" />
-        
         <button
           className={`p-3 rounded-full ${videoSectionOpen ? "bg-teal-400" : "bg-white"} hover:bg-teal-200 shadow-md`}
           onClick={toggleVideoSection}
@@ -1010,18 +1174,7 @@ export default function InfiniteCanvas() {
           <Download size={28} color="#fff" />
           <span className="block text-xs font-bold text-white">Save</span>
         </button>
-
-        
-        {/* <button
-          className="p-3 bg-blue-400 rounded-full shadow-md hover:bg-blue-500"
-          onClick={() => loadFromDatabase("67f95d1452fbc68703c12ed6")}
-          title="Load from Database"
-        >
-          <span className="text-sm font-bold text-white">Load</span>
-        </button> */}
       </div>
-
-
 
       {/* Cartoon Menu */}
       {cartoonMenuOpen && (
@@ -1044,111 +1197,107 @@ export default function InfiniteCanvas() {
         </div>
       )}
 
-
-
-
-{/* Video Section  */}
-{videoSectionOpen && (
-  <div className="fixed top-0 right-0 z-30 flex flex-col w-1/4 h-screen bg-white shadow-2xl rounded-l-xl">
-    {/* Close Button */}
-    <button
-      className="absolute z-40 p-1 bg-red-400 rounded-full top-2 right-2 hover:bg-red-500"
-      onClick={toggleVideoSection}
-      title="Close"
-    >
-      <X size={20} color="#fff" />
-    </button>
-
-    {/* Inner content with scroll */}
-    <div className="relative flex flex-col flex-1 p-4 overflow-y-auto">
-      {/* Search Bar */}
-      {!selectedVideoId && (
-        <div className="flex items-center mb-4">
-          <div className="relative flex-grow">
-            <input
-              type="text"
-              value={videoSearchQuery}
-              onChange={(e) => setVideoSearchQuery(e.target.value)}
-              onKeyPress={(e) => e.key === "Enter" && handleVideoSearch(videoSearchQuery)}
-              placeholder="Search for videos..."
-              className="w-full p-2 pr-10 text-sm text-purple-800 placeholder-purple-400 border-2 border-yellow-400 rounded-full bg-pink-50 focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
-            <button
-              className="absolute p-1 bg-purple-500 rounded-full right-2 top-2 hover:bg-purple-600"
-              onClick={() => handleVideoSearch(videoSearchQuery)}
-              title="Search"
-            >
-              <Search size={16} color="#fff" />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Video or Search Results */}
-      {selectedVideoId ? (
-        <div className="flex flex-col">
-          {/* Enlarged YouTube Video */}
-          <div className="relative mb-2 h-80">
-            <div className="absolute top-0 left-0 w-full h-full">
-              <YouTube videoId={selectedVideoId} opts={playerOptions} />
-            </div>
-          </div>
-
-          {/* Back Button */}
+      {/* Video Section */}
+      {videoSectionOpen && (
+        <div className="fixed top-0 right-0 z-30 flex flex-col w-1/4 h-screen bg-white shadow-2xl rounded-l-xl">
+          {/* Close Button */}
           <button
-            className="w-full px-4 py-1 text-sm font-bold text-white bg-yellow-500 rounded-full shadow-md hover:bg-yellow-600"
-            onClick={() => setSelectedVideoId(null)}
+            className="absolute z-40 p-1 bg-red-400 rounded-full top-2 right-2 hover:bg-red-500"
+            onClick={toggleVideoSection}
+            title="Close"
           >
-            Back to Videos
-          </button>
-        </div>
-      ) : (
-        <>
-          {/* YouTube Kids Button (optional) */}
-          <button
-            className="w-full px-4 py-1 mb-4 text-sm font-bold text-white bg-red-500 rounded-full shadow-md hover:bg-red-600"
-            onClick={openYouTubeKids}
-          >
-            Go to YouTube Kids
+            <X size={20} color="#fff" />
           </button>
 
-          {/* Video Results */}
-          <div className="flex-1 overflow-y-auto">
-            {isLoading ? (
-              <p className="text-sm font-bold text-center text-purple-800">Loading videos...</p>
-            ) : error ? (
-              <p className="text-sm font-bold text-center text-red-600">{error}</p>
-            ) : videoResults.length > 0 ? (
-              <div className="grid grid-cols-1 gap-2">
-                {videoResults.map((video) => (
-                  <div
-                    key={video.id.videoId}
-                    className="p-2 transition-transform bg-yellow-100 rounded-lg shadow-md cursor-pointer hover:scale-105"
-                    onClick={() => setSelectedVideoId(video.id.videoId)}
+          {/* Inner content with scroll */}
+          <div className="relative flex flex-col flex-1 p-4 overflow-y-auto" onScroll={handleVideoSectionScroll}>
+            {/* Search Bar */}
+            {!selectedVideoId && (
+              <div className="flex items-center mb-4">
+                <div className="relative flex-grow">
+                  <input
+                    type="text"
+                    value={videoSearchQuery}
+                    onChange={(e) => setVideoSearchQuery(e.target.value)}
+                    onKeyPress={(e) => e.key === "Enter" && handleVideoSearch(videoSearchQuery)}
+                    placeholder="Search for videos..."
+                    className="w-full p-2 pr-10 text-sm text-purple-800 placeholder-purple-400 border-2 border-yellow-400 rounded-full bg-pink-50 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                  <button
+                    className="absolute p-1 bg-purple-500 rounded-full right-2 top-2 hover:bg-purple-600"
+                    onClick={() => handleVideoSearch(videoSearchQuery)}
+                    title="Search"
                   >
-                    <img
-                      src={video.snippet.thumbnails.medium.url}
-                      alt={video.snippet.title}
-                      className="object-cover w-full h-16 rounded-md"
-                    />
-                    <h3 className="mt-1 text-xs font-bold text-purple-800 line-clamp-2">
-                      {video.snippet.title}
-                    </h3>
+                    <Search size={16} color="#fff" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Video or Search Results */}
+            {selectedVideoId ? (
+              <div className="flex flex-col">
+                {/* Enlarged YouTube Video */}
+                <div className="relative mb-2 h-80">
+                  <div className="absolute top-0 left-0 w-full h-full">
+                    <YouTube videoId={selectedVideoId} opts={playerOptions} />
                   </div>
-                ))}
+                </div>
+
+                {/* Back Button */}
+                <button
+                  className="w-full px-4 py-1 text-sm font-bold text-white bg-yellow-500 rounded-full shadow-md hover:bg-yellow-600"
+                  onClick={() => setSelectedVideoId(null)}
+                >
+                  Back to Videos
+                </button>
               </div>
             ) : (
-              <p className="text-sm font-bold text-center text-purple-800">
-                Search for videos to see results!
-              </p>
+              <>
+                {/* YouTube Kids Button */}
+                <button
+                  className="w-full px-4 py-1 mb-4 text-sm font-bold text-white bg-red-500 rounded-full shadow-md hover:bg-red-600"
+                  onClick={openYouTubeKids}
+                >
+                  Go to YouTube Kids
+                </button>
+
+                {/* Video Results */}
+                <div className="flex-1 overflow-y-auto">
+                  {isLoading ? (
+                    <p className="text-sm font-bold text-center text-purple-800">Loading videos...</p>
+                  ) : error ? (
+                    <p className="text-sm font-bold text-center text-red-600">{error}</p>
+                  ) : videoResults.length > 0 ? (
+                    <div className="grid grid-cols-1 gap-2">
+                      {videoResults.map((video) => (
+                        <div
+                          key={video.id.videoId}
+                          className="p-2 transition-transform bg-yellow-100 rounded-lg shadow-md cursor-pointer hover:scale-105"
+                          onClick={() => setSelectedVideoId(video.id.videoId)}
+                        >
+                          <img
+                            src={video.snippet.thumbnails.medium.url}
+                            alt={video.snippet.title}
+                            className="object-cover w-full h-16 rounded-md"
+                          />
+                          <h3 className="mt-1 text-xs font-bold text-purple-800 line-clamp-2">
+                            {video.snippet.title}
+                          </h3>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm font-bold text-center text-purple-800">
+                      Search for videos to see results!
+                    </p>
+                  )}
+                </div>
+              </>
             )}
           </div>
-        </>
+        </div>
       )}
-    </div>
-  </div>
-)}
-
 
       {/* Magic Button */}
       <div
@@ -1158,37 +1307,37 @@ export default function InfiniteCanvas() {
         }}
       >
         <button
-          className="flex items-center justify-center w-16 h-16 transition-transform rounded-full shadow-xl bg-gradient-to-r from-purple-500 to-pink-500 animate-bounce hover:scale-110"
+          className="flex items-center justify-center w-16 h-16 transition rounded-full shadow-xl bg-gradient-to-r from-purple-400 to-pink-400 animate-bounce hover:scale-110"
           onClick={toggleMagicMenu}
           title="Magic Options"
         >
           <span className="text-2xl text-white">✨</span>
         </button>
         {magicMenuOpen && (
-          <div className="absolute right-0 p-3 bg-white border-2 border-yellow-400 rounded-lg shadow-2xl bottom-20">
+          <div className="absolute right-0 p-3 bg-white border-2 border-purple-500 rounded-lg shadow-xl bottom-20">
             <button
-              className="block w-full px-4 py-2 font-bold text-left text-purple-800 rounded-md hover:bg-yellow-200"
+              className="block w-full px-4 py-2 font-bold text-purple-800 rounded-md hover:bg-yellow-100"
               onClick={() => handleMagicOption("Make Image")}
             >
               🖼️ Image
             </button>
             <button
-              className="block w-full px-4 py-2 font-bold text-left text-purple-800 rounded-md hover:bg-yellow-200"
+              className="block w-full px-4 py-2 font-bold text-purple-800 rounded-md hover:bg-yellow-100"
               onClick={() => handleMagicOption("Make Video")}
             >
               🎥 Video
             </button>
             <button
-              className="block w-full px-4 py-2 font-bold text-left text-purple-800 rounded-md hover:bg-yellow-200"
+              className="block w-full px-4 py-2 font-bold text-purple-800 rounded-md hover:bg-yellow-100"
               onClick={() => handleMagicOption("Make Animation")}
             >
               🎬 Animation
             </button>
             <button
-              className="block w-full px-4 py-2 font-bold text-left text-purple-800 rounded-md hover:bg-yellow-200"
+              className="block w-full px-4 py-2 font-bold text-purple-800 rounded-md hover:bg-yellow-100"
               onClick={() => handleMagicOption("Audio")}
             >
-              🎵 Audio
+              {isRecording ? "🎤 Stop Recording" : "🎵 Record Audio"}
             </button>
           </div>
         )}
@@ -1198,6 +1347,45 @@ export default function InfiniteCanvas() {
       <div className="absolute px-4 py-2 bg-yellow-300 rounded-full shadow-md bottom-4 left-4">
         <span className="text-sm font-bold text-purple-800">Zoom: {Math.round(scale * 100)}%</span>
       </div>
+
+      {/* Recording Animation */}
+      {isRecording && (
+        <div className="fixed z-50 flex flex-col items-center bottom-28 right-10">
+          <div className="relative flex items-center justify-center w-20 h-20">
+            <div className="absolute w-20 h-20 bg-red-200 rounded-full opacity-75 animate-ping"></div>
+            <svg
+              className="w-12 h-12 text-red-600"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+            >
+              <path
+                fillRule="evenodd"
+                d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm-1.5 4a4.5 4.5 0 019 0V8c0 2.485 2.015 4.5 4.5 4.5h.5a1 1 0 110 2h-.5A6.5 6.5 0 013 8V8a4.5 4.5 0 01-1.5-8z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </div>
+          <button
+            onClick={stopRecording}
+            className="px-4 py-2 mt-4 font-bold text-white transition bg-red-500 rounded-lg hover:bg-red-600"
+          >
+            Stop Recording
+          </button>
+        </div>
+      )}
+
+      {/* Loading Overlay */}
+      {isLoading && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="flex flex-col items-center justify-center">
+            <div className="relative w-16 h-16">
+              <div className="absolute w-16 h-16 border-4 border-purple-200 rounded-full"></div>
+              <div className="absolute w-16 h-16 border-4 border-purple-500 rounded-full border-t-transparent animate-spin"></div>
+            </div>
+            <p className="mt-4 text-lg font-semibold text-white">Processing...</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -12,6 +12,14 @@ app.use(express.json())
 app.use(express.urlencoded({extended: true}))
 app.use(cors({ origin: "http://localhost:5000" }));
 
+// app.use(cors({
+//   origin: 'https://9461-35-240-135-136.ngrok-free.app',
+//   methods: ['GET', 'POST', 'PUT', 'DELETE'],
+//   credentials: true,
+// }));
+
+
+
 mongoose.connect("mongodb://localhost:27017/ImaginationBook")
 .then(() => console.log("Connected to MongoDB"))
 .catch((err) => console.log(err))

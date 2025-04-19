@@ -3,6 +3,10 @@ import { Book, LogOut, History, Star, Edit, Image, PlayCircle, Sparkles, Rocket,
 import { useNavigate } from "react-router-dom"
 import { useSelector, useDispatch } from 'react-redux';
 import { setUserEmail, setUserPassword, clearCredentials } from '../Redux/slices/user/user';
+import { Player } from "@lottiefiles/react-lottie-player";
+import drawingAnimation1 from "../assets/paint1.json";  
+import drawingAnimation2 from "../assets/paint2.json"; 
+import drawingAnimation3 from "../assets/paint3.json"; 
 
 
 export default function ImaginationBookHome() {
@@ -10,16 +14,35 @@ export default function ImaginationBookHome() {
   const [animateBackground, setAnimateBackground] = useState(0);
   const navigate = useNavigate(); 
   const [draftItems, setDraftItems] = useState([]);
+  const [showAvatarModal, setShowAvatarModal] = useState(false);
+  const [selectedAvatar, setSelectedAvatar] = useState('');
 
   const email = useSelector((state) => state.user.userEmail)
   const password = useSelector((state) => state.user.userPassword);
 
   const dispatch = useDispatch();
 
-  if(!email && !password)
-  {
-    navigate("/") ; 
+  
+  let finalEmail = localStorage.getItem("email") || email;
+  let finalPassword = localStorage.getItem("password") || password;
+
+  // console.log("Final Email:", finalEmail);
+  // console.log("Final Password:", finalPassword);
+
+  if(!finalEmail && !finalPassword) { 
+    navigate("/");
   }
+
+
+
+const featured = 
+
+[
+  {name:"Amazing Drawings" , image: "./cover-ItI.png" , desc: "Draw your imagination, enhance with ai"} , 
+  {name:"Words Garden" , image: "./cover-T2I.png" , desc: "Write your own story, let AI illustrate it"} ,
+  {name:"Recite Stars" , image: "./cover-AtI.png" , desc: "Recite your story, let AI draw it"} , 
+  {name:"YouTube Kids" , image: "./cover-yt.png" , desc: "Watch your favorite videos"} ,
+]  
 
   // Animated background effect
   useEffect(() => {
@@ -28,30 +51,58 @@ export default function ImaginationBookHome() {
     }, 100);
     return () => clearInterval(interval);
   }, []);
-  
-  
-  
-  // Sample draft data
 
+  // Load avatar from localStorage on mount
+  useEffect(() => {
+    const savedAvatar = localStorage.getItem('userAvatar');
+    if (savedAvatar) {
+      setSelectedAvatar(savedAvatar);
+    } else {
+      // Default avatar if none is saved
+      setSelectedAvatar('https://th.bing.com/th/id/OIP.k6elsXFYXm-_KxR90MVzrQHaHa?w=2000&h=2000&rs=1&pid=ImgDetMain');
+    }
+  }, []);
+
+  // Sample draft data
   useEffect(() => {
     const fetchDrafts = async () => {
       try {
-        const res = await fetch(`http://localhost:3000/api/draft?email=${email}`);
+        const res = await fetch(`http://localhost:3000/api/draft?email=${finalEmail}`, );
         const data = await res.json();
         setDraftItems(data);  
+        // console.log("Drafts fetched:", data); // Debugging line
       } catch (err) {
         console.error('Error fetching drafts:', err);
       }
     };
   
     if (email) fetchDrafts();
-  }, [email]);
-  
+  }, [finalEmail]);
 
-  
-  
+  // Predefined avatar options
+  const avatarOptions = [
+    
+    "https://i.seadn.io/gae/Y3_9Lz2P3gGeqcbWGt261ChjZhU-Yn8pInui5jJs0rqlf9PI9GGInKMjkWcNG00Dh0KVVUGpZRr5StFhgGzmuOFwREyX9z-gbnXvyQ?auto=format&dpr=1&w=3840",
+    "https://cdn3.iconfinder.com/data/icons/avatars-9/145/Avatar_Penguin-512.png",
+    "https://cdn3.iconfinder.com/data/icons/avatars-9/145/Avatar_Cat-512.png",
+    "https://cdn3.iconfinder.com/data/icons/avatars-9/145/Avatar_Dog-512.png",
+    "https://cdn3.iconfinder.com/data/icons/avatars-9/145/Avatar_Frog-512.png",
+    'https://th.bing.com/th/id/R.a6f439a438edb562e6df79d596dde1c6?rik=szk5YJE0Z9ra4g&riu=http%3a%2f%2fgetdrawings.com%2ffree-icon%2ffunny-profile-icons-70.png&ehk=91YpDGnXRtwVekDFaCMrsihwazF0m7Yfy%2b9%2bJvIBJFQ%3d&risl=&pid=ImgRaw&r=0',
+    'https://th.bing.com/th/id/OIP.k6elsXFYXm-_KxR90MVzrQHaHa?w=2000&h=2000&rs=1&pid=ImgDetMain',
+    'https://image.freepik.com/free-vector/pink-haired-girl-avatar_150357-47.jpg',
+    'https://img.freepik.com/premium-photo/flat-no-picture-avatar-profile-picture_941097-35008.jpg',
+    'https://th.bing.com/th/id/OIP.9138UUOtTozsyNf8Id1d-QHaHa?w=1920&h=1920&rs=1&pid=ImgDetMain',
+    'https://img.freepik.com/premium-photo/girl-flat-cartoon-character-illustration_620650-2334.jpg',
+    'https://img.freepik.com/premium-photo/3d-avatar-cartoon-character_113255-95117.jpg',
+  ];
 
-  
+  // Handle avatar selection
+  const handleAvatarSelect = (avatarUrl) => {
+    setSelectedAvatar(avatarUrl);
+    localStorage.setItem('userAvatar', avatarUrl);
+    setShowAvatarModal(false);
+  };
+
   return (
     <div className="relative min-h-screen overflow-hidden font-sans bg-white">
       {/* Animated Background Elements */}
@@ -113,23 +164,59 @@ export default function ImaginationBookHome() {
             <div className="relative">
               <div className="absolute inset-0 rounded-full bg-gradient-to-r from-pink-400 to-purple-500 animate-spin-slow opacity-70"></div>
               <img
-                src="https://static.vecteezy.com/system/resources/previews/021/548/095/non_2x/default-profile-picture-avatar-user-avatar-icon-person-icon-head-icon-profile-picture-icons-default-anonymous-user-male-and-female-businessman-photo-placeholder-social-network-avatar-portrait-free-vector.jpg"
+                src={selectedAvatar}
                 alt="user"
-                className="relative z-10 w-10 h-10 border-2 border-white rounded-full"
+                className="relative z-10 w-10 h-10 border-2 border-white rounded-full cursor-pointer"
+                onClick={() => setShowAvatarModal(true)}
               />
-
               <span className="absolute bottom-0 right-0 z-20 w-3 h-3 bg-green-400 border-2 border-white rounded-full"></span>
             </div>
             <button className="text-white transition-colors hover:text-yellow-300"
-            onClick={() =>{
-              dispatch(clearCredentials())
-              localStorage.clear();
-            }}>
+              onClick={() => {
+                dispatch(clearCredentials())
+                localStorage.clear();
+              }}>
               <LogOut size={22} />
             </button>
           </div>
         </div>
       </header>
+
+      {/* Avatar Selection Modal */}
+      {showAvatarModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="w-full max-w-md p-6 bg-white shadow-xl rounded-3xl">
+            <h3 className="mb-4 text-xl font-bold text-gray-800">Choose Your Avatar</h3>
+            <div className="grid grid-cols-3 gap-4 mb-6">
+              {avatarOptions.map((avatar, index) => (
+                <img
+                  key={index}
+                  src={avatar}
+                  alt={`Avatar ${index + 1}`}
+                  className={`w-16 h-16 rounded-full cursor-pointer border-2 ${
+                    selectedAvatar === avatar ? 'border-purple-500' : 'border-transparent'
+                  } hover:border-purple-300`}
+                  onClick={() => handleAvatarSelect(avatar)}
+                />
+              ))}
+            </div>
+            <div className="flex justify-end space-x-2">
+              <button
+                className="px-4 py-2 text-gray-600 bg-gray-100 rounded-full hover:bg-gray-200"
+                onClick={() => setShowAvatarModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-4 py-2 text-white rounded-full bg-gradient-to-r from-purple-500 to-pink-500 hover:shadow-lg"
+                onClick={() => setShowAvatarModal(false)}
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Navigation Bar */}
       <nav className="sticky top-0 z-20 py-2 bg-white border-b border-purple-100 shadow-lg bg-opacity-80 backdrop-filter backdrop-blur-md">
@@ -191,91 +278,147 @@ export default function ImaginationBookHome() {
           </div>
         )}
 
-        {/* Canvas Templates Section */}
-        {activeTab === 'explore' && (
-          <div className="grid grid-cols-1 gap-6 mb-8 md:grid-cols-3">
-            {/* Story Canvas */}
-            <div className="overflow-hidden transition-all transform bg-white border border-blue-100 shadow-xl cursor-pointer group rounded-3xl hover:scale-105">
-              <div className="relative flex items-center justify-center h-48 overflow-hidden bg-gradient-to-br from-blue-100 to-blue-50">
-                <div className="absolute inset-0 transition-opacity transform scale-110 translate-x-20 skew-x-12 bg-blue-200 opacity-20 group-hover:opacity-30 rotate-12 group-hover:translate-x-0"></div>
-                <div className="absolute bottom-0 right-0 w-20 h-20 bg-yellow-300 rounded-full opacity-10 filter blur-md"></div>
-                <div className="relative z-10 p-6 transition-transform transform rounded-full shadow-lg bg-gradient-to-br from-blue-500 to-blue-600 group-hover:rotate-12">
-                  <Edit size={48} className="text-white" />
-                </div>
-              </div>
-              <div className="p-6">
-                <h3 className="flex items-center mb-2 text-xl font-bold text-blue-600">
-                  Create Stories
-                  <Sparkles className="ml-2 text-yellow-500" size={16} />
-                </h3>
-                <p className="text-gray-600">Write your story and watch it transform into magical animations and illustrations!</p>
-                <div className="flex justify-end mt-4">
-                  <button 
-                    onClick={() => navigate("/board1")}
-                    className="flex items-center px-6 py-2 text-sm text-white transition-all transform bg-blue-500 rounded-full shadow-lg hover:bg-blue-400 hover:scale-105"
-                  >
-                    <Zap className="mr-1" size={14} />
-                    Open Canvas
-                  </button>
-                </div>
-              </div>
-            </div>
 
-            {/* Art Canvas */}
-            <div className="overflow-hidden transition-all transform bg-white border border-purple-100 shadow-xl cursor-pointer group rounded-3xl hover:scale-105">
-              <div className="relative flex items-center justify-center h-48 overflow-hidden bg-gradient-to-br from-purple-100 to-purple-50">
-                <div className="absolute inset-0 transition-opacity transform scale-110 -translate-x-20 skew-x-12 bg-purple-200 opacity-20 group-hover:opacity-30 -rotate-12 group-hover:translate-x-0"></div>
-                <div className="absolute top-0 left-0 w-20 h-20 bg-pink-300 rounded-full opacity-10 filter blur-md"></div>
-                <div className="relative z-10 p-6 transition-transform transform rounded-full shadow-lg bg-gradient-to-br from-purple-500 to-purple-600 group-hover:-rotate-12">
-                  <Image size={48} className="text-white" />
-                </div>
-              </div>
-              <div className="p-6">
-                <h3 className="flex items-center mb-2 text-xl font-bold text-purple-600">
-                  See AI Art
-                  <Sparkles className="ml-2 text-yellow-500" size={16} />
-                </h3>
-                <p className="text-gray-600">Describe what you imagine and watch as AI creates amazing artwork from your ideas!</p>
-                <div className="flex justify-end mt-4">
-                  <button 
-                    onClick={() => navigate("/board2")}
-                    className="flex items-center px-6 py-2 text-sm text-white transition-all transform bg-purple-500 rounded-full shadow-lg hover:bg-purple-400 hover:scale-105"
-                  >
-                    <Zap className="mr-1" size={14} />
-                    Open Canvas
-                  </button>
-                </div>
-              </div>
-            </div>
 
-            {/* Animation Canvas */}
-            <div className="overflow-hidden transition-all transform bg-white border border-pink-100 shadow-xl cursor-pointer group rounded-3xl hover:scale-105">
-              <div className="relative flex items-center justify-center h-48 overflow-hidden bg-gradient-to-br from-pink-100 to-pink-50">
-                <div className="absolute inset-0 transition-opacity transform scale-110 translate-y-10 skew-y-6 bg-pink-200 opacity-20 group-hover:opacity-30 rotate-6 group-hover:translate-y-0"></div>
-                <div className="absolute w-16 h-16 bg-yellow-300 rounded-full bottom-4 right-4 opacity-10 filter blur-md"></div>
-                <div className="relative z-10 p-6 transition-transform transform rounded-full shadow-lg bg-gradient-to-br from-pink-500 to-pink-600 group-hover:rotate-6">
-                  <PlayCircle size={48} className="text-white" />
-                </div>
-              </div>
-              <div className="p-6">
-                <h3 className="flex items-center mb-2 text-xl font-bold text-pink-600">
-                  Animated Magic
-                  <Sparkles className="ml-2 text-yellow-500" size={16} />
-                </h3>
-                <p className="text-gray-600">Create amazing moving stories with sounds and music that bring your ideas to life!</p>
-                <div className="flex justify-end mt-4">
-                  <button 
-                    onClick={() => navigate("/board3")}
-                    className="flex items-center px-6 py-2 text-sm text-white transition-all transform bg-pink-500 rounded-full shadow-lg hover:bg-pink-400 hover:scale-105"
-                  >
-                    <Zap className="mr-1" size={14} />
-                    Open Canvas
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+
+
+
+
+
+
+
+{activeTab === 'explore' && (
+  <div className="grid grid-cols-1 gap-6 mb-8 md:grid-cols-3">
+    
+    {/* Story Canvas */}
+    <div className="overflow-hidden transition-all transform bg-white border border-blue-100 shadow-xl cursor-pointer group rounded-3xl hover:scale-105">
+      <div
+        className="relative flex items-center justify-center h-48 overflow-hidden rounded-t-3xl"
+        onClick={() => navigate("/board1")}
+      >
+        <Player
+          autoplay
+          loop
+          src={drawingAnimation1}
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            height: "100%",
+            width: "100%",
+            zIndex: 0,
+          }}
+        />
+        <div className="absolute inset-0 z-10 transition-opacity duration-300 bg-white opacity-0 group-hover:opacity-10"></div>
+      </div>
+
+      <div className="relative z-10 p-6 bg-white rounded-b-3xl">
+        <h3 className="flex items-center mb-2 text-xl font-bold text-blue-600">
+          Magic Garden
+          <Sparkles className="ml-2 text-yellow-500" size={16} />
+        </h3>
+        <p className="text-gray-600">
+          Write your story and watch it transform into magical animations and illustrations!
+        </p>
+        <div className="flex justify-end mt-4">
+          <button
+            onClick={() => navigate("/board1")}
+            className="flex items-center px-6 py-2 text-sm text-white transition-all transform bg-blue-500 rounded-full shadow-lg hover:bg-blue-400 hover:scale-105"
+          >
+            <Zap className="mr-1" size={14} />
+            Open Canvas
+          </button>
+        </div>
+      </div>
+    </div>
+
+    {/* Art Canvas */}
+    <div className="overflow-hidden transition-all transform bg-white border border-blue-100 shadow-xl cursor-pointer group rounded-3xl hover:scale-105">
+      <div
+        className="relative flex items-center justify-center h-48 overflow-hidden rounded-t-3xl"
+        onClick={() => navigate("/board2")}
+      >
+        <Player
+          autoplay
+          loop
+          src={drawingAnimation2}
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            height: "100%",
+            width: "100%",
+            zIndex: 0,
+          }}
+        />
+        <div className="absolute inset-0 z-10 transition-opacity duration-300 bg-white opacity-0 group-hover:opacity-10"></div>
+      </div>
+
+      <div className="relative z-10 p-6 bg-white rounded-b-3xl">
+        <h3 className="flex items-center mb-2 text-xl font-bold text-blue-600">
+          PlayPalette
+          <Sparkles className="ml-2 text-yellow-500" size={16} />
+        </h3>
+        <p className="text-gray-600">
+          Describe what you imagine and watch as AI creates amazing artwork from your ideas!
+        </p>
+        <div className="flex justify-end mt-4">
+          <button
+            onClick={() => navigate("/board2")}
+            className="flex items-center px-6 py-2 text-sm text-white transition-all transform bg-blue-500 rounded-full shadow-lg hover:bg-blue-400 hover:scale-105"
+          >
+            <Zap className="mr-1" size={14} />
+            Open Canvas
+          </button>
+        </div>
+      </div>
+    </div>
+
+    {/* Animation Canvas */}
+    <div className="overflow-hidden transition-all transform bg-white border border-blue-100 shadow-xl cursor-pointer group rounded-3xl hover:scale-105">
+      <div
+        className="relative flex items-center justify-center h-48 overflow-hidden rounded-t-3xl"
+        onClick={() => navigate("/board3")}
+      >
+        <Player
+          autoplay
+          loop
+          src={drawingAnimation3}
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            height: "100%",
+            width: "100%",
+            zIndex: 0,
+          }}
+        />
+        <div className="absolute inset-0 z-10 transition-opacity duration-300 bg-white opacity-0 group-hover:opacity-10"></div>
+      </div>
+
+      <div className="relative z-10 p-6 bg-white rounded-b-3xl">
+        <h3 className="flex items-center mb-2 text-xl font-bold text-blue-600">
+          Animagic
+          <Sparkles className="ml-2 text-yellow-500" size={16} />
+        </h3>
+        <p className="text-gray-600">
+          Turn your ideas into animated stories using our creative AI-powered animation canvas!
+        </p>
+        <div className="flex justify-end mt-4">
+          <button
+            onClick={() => navigate("/board3")}
+            className="flex items-center px-6 py-2 text-sm text-white transition-all transform bg-blue-500 rounded-full shadow-lg hover:bg-blue-400 hover:scale-105"
+          >
+            <Zap className="mr-1" size={14} />
+            Open Canvas
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+
+        
 
         {/* History/Drafts Section */}
         {activeTab === 'history' && (
@@ -284,34 +427,6 @@ export default function ImaginationBookHome() {
               <Star className="mr-2 text-yellow-500" size={24} />
               My Magical Creations
             </h2>
-            
-
-            
-
-                    {/* {
-            _id: new ObjectId('67ffcd68365e635505e46487'),
-            name: 'KidsDrawing-1744817512820',
-            elements: [
-              [Object], [Object], [Object],
-              [Object], [Object], [Object],
-              [Object], [Object], [Object],
-              [Object], [Object], [Object],
-              [Object], [Object], [Object],
-              [Object], [Object], [Object],
-              [Object], [Object], [Object],
-              [Object], [Object], [Object],
-              [Object], [Object], [Object],
-              [Object], [Object], [Object],
-              [Object], [Object]
-            ],
-            userEmail: 'prantiksanki2004@gmail.com',
-            canvasType: 'story',
-            createdAt: 2025-04-16T15:31:52.834Z,
-            updatedAt: 2025-04-16T15:31:52.834Z,
-            __v: 0
-          } */}
-
-             
             {draftItems.length > 0 ? (
               <div className="space-y-4">
                 {draftItems.map(draft => (
@@ -329,29 +444,28 @@ export default function ImaginationBookHome() {
                       <div>
                         <h3 className="text-lg font-bold text-gray-800">{draft.name}</h3>
                         <p className="text-sm text-gray-500">
-                                  Last edited: {new Date(draft.updatedAt).toLocaleString()}
-                                  
+                          Last edited: {new Date(draft.updatedAt).toLocaleString()}
                         </p>                      
-                        </div>
+                      </div>
                     </div>
                     <div className="flex space-x-2">
-                    <button
-                    className="flex items-center px-6 py-2 text-sm text-white transition-all transform rounded-full shadow-md bg-gradient-to-r from-purple-500 to-pink-500 hover:shadow-lg hover:scale-105"
-                    onClick={() => {
-                      if (draft.board == "Board1") 
-                      {
-                        navigate(`/draft1/${draft._id}`);
-                      } 
-                      else if(draft.board == "Board2") 
-                      {
-                        navigate(`/draft2/${draft._id}`);
-                      }
-                      else
-                      {
-                        navigate(`/draft3/${draft._id}`);
-                      }
-                    }}
-                  >
+                      <button
+                        className="flex items-center px-6 py-2 text-sm text-white transition-all transform rounded-full shadow-md bg-gradient-to-r from-purple-500 to-pink-500 hover:shadow-lg hover:scale-105"
+                        onClick={() => {
+                          if (draft.board == "Board1") 
+                          {
+                            navigate(`/draft1/${draft._id}`);
+                          } 
+                          else if(draft.board == "Board2") 
+                          {
+                            navigate(`/draft2/${draft._id}`);
+                          }
+                          else
+                          {
+                            navigate(`/draft3/${draft._id}`);
+                          }
+                        }}
+                      >
                         <Zap className="mr-1" size={14} />
                         Continue
                       </button>
@@ -376,9 +490,6 @@ export default function ImaginationBookHome() {
             )}
           </div>
         )}
-        
-
-        
 
         {/* Featured Creations (visible in Explore tab) */}
         {activeTab === 'explore' && (
@@ -393,23 +504,29 @@ export default function ImaginationBookHome() {
               </button>
             </div>
             
+
+
+            
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-              {[1, 2, 3, 4].map(i => (
+              {featured.map(i => (
                 <div key={i} className="overflow-hidden transition-all transform bg-white border border-blue-100 shadow-lg cursor-pointer rounded-2xl hover:shadow-xl hover:scale-105">
                   <div className="relative overflow-hidden h-36 bg-gradient-to-br from-blue-100 to-purple-100">
                     <div className="absolute inset-0 flex items-center justify-center">
                       <div className="w-full h-full bg-white bg-opacity-10" 
-                           style={{
-                             backgroundImage: `radial-gradient(circle at ${50 + (i*10)}% ${30 + (i*15)}%, rgba(129,80,255,0.4) 0%, rgba(129,80,255,0) 60%)`
-                           }}></div>
+                      style={{
+                        backgroundImage: `url(${i.image})`,
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                      }}
+                      ></div>
                     </div>
                     <div className="absolute bottom-2 right-2">
                       <Sparkles className="text-yellow-500" size={16} />
                     </div>
                   </div>
                   <div className="p-4">
-                    <h3 className="font-bold text-gray-800 truncate">Cosmic Journey #{i}</h3>
-                    <p className="text-sm text-purple-600">By Space Explorer #{i}</p>
+                    <h3 className="font-bold text-gray-800 truncate">{i.name}</h3>
+                    <p className="text-sm text-purple-600">{i.desc}</p>
                   </div>
                 </div>
               ))}
