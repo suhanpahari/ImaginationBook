@@ -17,14 +17,16 @@ export default function ImaginationBookHome() {
   const [showAvatarModal, setShowAvatarModal] = useState(false);
   const [selectedAvatar, setSelectedAvatar] = useState('');
 
-  const email = useSelector((state) => state.user.userEmail)
-  const password = useSelector((state) => state.user.userPassword);
+  // let finalEmail = null ;
+  // let finalPassword = null ;
+  const email = useSelector((state) => state.user?.userEmail)
+  const password = useSelector((state) => state.user?.userPassword);
 
   const dispatch = useDispatch();
 
   
-  let finalEmail = localStorage.getItem("email") || email;
-  let finalPassword = localStorage.getItem("password") || password;
+  let finalEmail = localStorage?.getItem("email") || email;
+  let finalPassword = localStorage?.getItem("password") || password;
 
   // console.log("Final Email:", finalEmail);
   // console.log("Final Password:", finalPassword);
