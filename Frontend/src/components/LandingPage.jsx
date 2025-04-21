@@ -121,8 +121,8 @@ const AuthModal = ({ showAuth, setShowAuth, authMode, setAuthMode }) => {
   // Localstorage add
 
   useEffect(() => {
-    const storedEmail = localStorage.getItem('email');
-    const storedPassword = localStorage.getItem('password');
+    const storedEmail = localStorage?.getItem('email');
+    const storedPassword = localStorage?.getItem('password');
   
     if (storedEmail && storedPassword) {
        dispatch(setUserEmail(storedEmail));
