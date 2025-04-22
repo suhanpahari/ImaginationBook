@@ -3,7 +3,10 @@ const mongoose = require('mongoose')
 const User = require('./model/user')
 const cors = require('cors')
 const DraftCanvas = require('./model/draftCanvas')
+const nodemailer = require('nodemailer')
+const dotenv = require('dotenv')
 
+dotenv.config();
 
 const app = express() ; 
 const port = process.env.PORT || 3000;
@@ -26,23 +29,81 @@ mongoose.connect("mongodb+srv://prantik:cgx97.-5mqNv9uW@cluster0.eyubvjw.mongodb
 
 
 
-app.post("/signup",async (req,res)=>
-{
-    const {name , email, password, confirmPassword } = req.body ;
-    console.log(name , email, password, confirmPassword) ; 
-    console.log("Signup page") ; 
-    if(password !== confirmPassword)
-    {
-        return res.status(400).json({error : "Password and Confirm Password do not match"})
-    }
-    else
-    {
-        const user = await new User({name, email, password})
-        await user.save() ; 
-        return res.status(200).json({message : "User created successfully"})
-    }
-}
-)
+app.post("/signup", async (req, res) => {
+  const { name, email, password, confirmPassword } = req.body;
+  console.log(name, email, password, confirmPassword);
+  console.log("Signup page");
+
+  if (password !== confirmPassword) {
+      return res.status(400).json({ error: "Password and Confirm Password do not match" });
+  }
+
+  try {
+      // Check if user already exists
+      const existingUser = await User.findOne({ email });
+      if (existingUser) {
+          return res.status(400).json({ error: "Email is already registered" });
+      }
+
+      // // Create and save new user
+      // const user = new User({ name, email, password });
+      // await user.save();
+
+      // Setup email transport
+
+      // console.log(process.env.EMAIL) ; 
+      // console.log(process.env.PASSWORD) ;
+      const transporter = nodemailer.createTransport({
+          service: 'gmail',
+          auth: {
+              user: process.env.EMAIL,
+              pass: process.env.PASSWORD,
+          }
+      });
+
+      const mailOptions = {
+          from: 'imaginationbookpvtltd@gmail.com',
+          to: email,
+          subject: '🎉 Welcome to Imagination Book – Let Your Story Come to Life',
+          text: `Hi ${name},
+
+              Welcome aboard! 🎨✨
+
+              We’re thrilled to have you join Imagination Book — the platform where creativity meets cutting-edge AI. Whether you’re crafting magical stories, educational adventures, or personalized memories, our tools help you bring them to life through interactive pictures, animations, and videos — all powered by AI.
+
+              Here's what you can do next:
+
+              📖 Start a new story with AI-assisted visuals
+              🎬 Add animations and videos that respond to your imagination
+              🌐 Share your creation with the world in just a few clicks
+
+              Your imagination is the limit — and we’re here to help you stretch it further than ever.
+
+              🚀 Ready to get started?
+              Log in now and start creating: https://imaginationbook-5d4r.onrender.com/
+
+              Need help or have questions? Just reply to this email or check out our Help Center.
+
+              Thank you for choosing Imagination Book. Let’s make stories unforgettable!`
+                    };
+
+      const result = await transporter.sendMail(mailOptions);
+      // console.log(result) ;
+       // Create and save new user
+       const user = new User({ name, email, password });
+       await user.save();
+
+      return res.status(200).json({ message: 'Signup successful, email sent' });
+
+  } catch (err) {
+      console.error("Signup error:", err);
+      if (err.code === 11000) {
+          return res.status(400).json({ error: "Email already exists" });
+      }
+      return res.status(500).json({ error: "Server error during signup" });
+  }
+});
+
 
 app.post('/login' , async (req,res)=>
 {

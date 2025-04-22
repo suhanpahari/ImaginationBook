@@ -1518,7 +1518,7 @@ const saveAiImage = async () => {
             </button>
             <button
               className="block w-full px-4 py-2 font-bold text-purple-800 rounded-md opacity-50 hover:bg-yellow-100"
-              disabled
+              
             >
               🎥 Video
             </button>
@@ -1530,7 +1530,7 @@ const saveAiImage = async () => {
             </button>
             <button
               className="block w-full px-4 py-2 font-bold text-purple-800 rounded-md opacity-50 hover:bg-yellow-100"
-              disabled
+              
             >
               🎵 Audio
             </button>
