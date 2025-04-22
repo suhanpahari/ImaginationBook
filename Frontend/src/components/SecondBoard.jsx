@@ -80,6 +80,11 @@ export default function InfiniteCanvas() {
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const navigate = useNavigate();
+  const [isAnimationOpen, setIsAnimationOpen] = useState(false);
+  const [animations, setAnimations] = useState([]);
+  const animationFrameRef = useRef(null);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [showAnimationDashboard, setShowAnimationDashboard] = useState(false);
 
   const email = useSelector((state) => state.user.userEmail);
   const password = useSelector((state) => state.user.userPassword);
@@ -156,99 +161,294 @@ export default function InfiniteCanvas() {
     redrawCanvas();
   }, [elements, panOffset, scale, pageColor, videoSectionOpen, videoResults, selectedVideoId, alertMessage]);
 
+  // Add animation images
+  const animatedImages = [
+    {
+      url: "https://images.pexels.com/photos/3532552/pexels-photo-3532552.jpeg",
+      animation: "rotate"
+    },
+    {
+      url: "https://images.pexels.com/photos/3532557/pexels-photo-3532557.jpeg",
+      animation: "bounce"
+    },
+    {
+      url: "https://images.pexels.com/photos/3532544/pexels-photo-3532544.jpeg",
+      animation: "pulse"
+    },
+    {
+      url: "https://images.pexels.com/photos/3532548/pexels-photo-3532548.jpeg",
+      animation: "float"
+    }
+  ];
 
-    // Save canvas as image
-    const saveAsImage = async (filename) => {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      const tempCanvas = document.createElement("canvas");
-      tempCanvas.width = canvas.width;
-      tempCanvas.height = canvas.height;
-      const tempContext = tempCanvas.getContext("2d");
-      if (!tempContext) return;
-      tempContext.fillStyle = pageColor || "white";
-      tempContext.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
-      tempContext.translate(panOffset.x, panOffset.y);
-      tempContext.scale(scale, scale);
-      elements.forEach((element) => {
-        if (element.type === "pencil") {
-          tempContext.beginPath();
-          tempContext.moveTo(element.points[0].x, element.points[0].y);
-          element.points.forEach((point) => tempContext.lineTo(point.x, point.y));
-          tempContext.strokeStyle = element.strokeColor;
-          tempContext.lineWidth = element.strokeWidth;
-          tempContext.lineCap = "round";
-          tempContext.lineJoin = "round";
-          tempContext.stroke();
-        } else if (element.type === "cartoon" && element.cartoonType) {
-          const img = cartoonImages[element.cartoonType];
-          if (img) {
-            const x = element.points[0].x;
-            const y = element.points[0].y;
-            const width = element.width || 100;
-            const height = element.height || 100;
-            tempContext.drawImage(img, x, y, width, height);
-          }
-        } else if (element.type === "text" && element.text) {
-          tempContext.font = `${element.textSize}px Comic Sans MS`;
-          tempContext.fillStyle = element.strokeColor;
-          tempContext.fillText(element.text, element.points[0].x, element.points[0].y);
-        } else if (element.roughElement) {
-          roughCanvasRef.current.draw(element.roughElement);
+  // Update redrawCanvas function
+  const redrawCanvas = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const context = canvas.getContext("2d");
+    if (!context || !roughCanvasRef.current) return;
+
+    // Clear canvas
+    context.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Fill background
+    context.fillStyle = pageColor || "white";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Save context state
+    context.save();
+    context.translate(panOffset.x, panOffset.y);
+    context.scale(scale, scale);
+
+    // Draw animations
+    animations.forEach((anim) => {
+      if (!anim.image) return;
+      
+      context.save();
+      const now = Date.now();
+      const progress = ((now - anim.startTime) % anim.duration) / anim.duration;
+      
+      // Set opacity for animations
+      context.globalAlpha = 0.5;
+      
+      // Apply different animations based on type
+      switch (anim.animationType) {
+        case "rotate":
+          context.translate(anim.x + anim.width/2, anim.y + anim.height/2);
+          context.rotate(progress * Math.PI * 2);
+          context.translate(-(anim.x + anim.width/2), -(anim.y + anim.height/2));
+          break;
+          
+        case "bounce":
+          const bounceOffset = Math.abs(Math.sin(progress * Math.PI * 2)) * 30;
+          context.translate(0, -bounceOffset);
+          break;
+          
+        case "pulse":
+          const scale = 1 + Math.sin(progress * Math.PI * 2) * 0.1;
+          context.translate(anim.x + anim.width/2, anim.y + anim.height/2);
+          context.scale(scale, scale);
+          context.translate(-(anim.x + anim.width/2), -(anim.y + anim.height/2));
+          break;
+          
+        case "float":
+          const floatOffsetX = Math.sin(progress * Math.PI * 2) * 20;
+          const floatOffsetY = Math.cos(progress * Math.PI * 2) * 20;
+          context.translate(floatOffsetX, floatOffsetY);
+          break;
+      }
+      
+      // Draw the animation image
+      context.drawImage(anim.image, anim.x, anim.y, anim.width, anim.height);
+      
+      // Draw selection border if selected
+      if (selectedElement?.id === anim.id) {
+        context.globalAlpha = 1;
+        context.strokeStyle = "#FFD700";
+        context.lineWidth = 2;
+        context.strokeRect(anim.x - 2, anim.y - 2, anim.width + 4, anim.height + 4);
+      }
+      
+      context.restore();
+    });
+
+    // Reset opacity for other elements
+    context.globalAlpha = 1;
+
+    // Draw other elements
+    elements.forEach((element) => {
+      if (element.type === "pencil") {
+        context.beginPath();
+        context.moveTo(element.points[0].x, element.points[0].y);
+        element.points.forEach((point) => context.lineTo(point.x, point.y));
+        context.strokeStyle = element.strokeColor;
+        context.lineWidth = element.strokeWidth;
+        context.lineCap = "round";
+        context.lineJoin = "round";
+        context.stroke();
+      } else if (element.type === "cartoon" && element.cartoonType) {
+        const img = cartoonImages[element.cartoonType];
+        if (img) {
+          const x = element.points[0].x;
+          const y = element.points[0].y;
+          const width = element.width || 100;
+          const height = element.height || 100;
+          context.drawImage(img, x, y, width, height);
         }
-      });
-      tempContext.translate(-panOffset.x, -panOffset.y);
-      tempContext.scale(1 / scale, 1 / scale);
-  
-      const blob = await new Promise((resolve) => {
-        tempCanvas.toBlob((blob) => resolve(blob), "image/png");
-      });
-  
-      const formData = new FormData();
-      formData.append("image", blob, "drawing.png");
-  
-      try {
-        const url = import.meta.env.VITE_NGROK_ENDPOINT || "https://fbd9-34-125-87-16.ngrok-free.app/process";
-        const response = await fetch(url, {
-          method: "POST",
-          body: formData,
-        });
-  
-        const data = await response.json();
-  
-        if (response.ok) {
-          const img = new Image();
-          img.src = `data:image/png;base64,${data.image}`;
-          img.onload = () => {
-            const newElement = createElement(
-              generateId(),
-              0,
-              0,
-              img.width / 2,
-              img.height / 2,
-              "cartoon",
-              null
-            );
-            newElement.cartoonType = `processed-${Date.now()}`;
-            cartoonImages[newElement.cartoonType] = img;
-            newElement.width = img.width / 2;
-            newElement.height = img.height / 2;
-            setElements((prev) => [...prev, newElement]);
-            updateHistory([...elements, newElement]);
-            showCanvasAlert("Yay! Your image has been processed!");
-          };
-        } else {
-          console.error("Error from server:", data.error);
-          showCanvasAlert("Failed to process image!");
-        }
-      } catch (error) {
-        console.error("Network error:", error);
-        showCanvasAlert("Network error while processing image!");
+      } else if (element.type === "text" && element.text) {
+        context.font = `${element.textSize}px Comic Sans MS`;
+        context.fillStyle = element.strokeColor;
+        context.fillText(element.text, element.points[0].x, element.points[0].y);
+      } else if (element.roughElement) {
+        roughCanvasRef.current.draw(element.roughElement);
+      }
+    });
+
+    // Restore context state
+    context.restore();
+
+    // Draw alert message if present
+    if (alertMessage) {
+      context.save();
+      const alertWidth = 300;
+      const alertHeight = 100;
+      const margin = 20;
+      const x = (canvas.width - alertWidth - margin) / scale;
+      const y = margin / scale;
+      context.fillStyle = "rgba(0, 0, 0, 0.8)";
+      context.fillRect(x, y, alertWidth / scale, alertHeight / scale);
+      context.fillStyle = "#ffffff";
+      context.font = `${24 / scale}px Comic Sans MS`;
+      context.textAlign = "center";
+      context.textBaseline = "middle";
+      context.fillText(alertMessage, x + alertWidth / scale / 2, y + alertHeight / scale / 2);
+      context.restore();
+    }
+  };
+
+  // Update animation frame effect
+  useEffect(() => {
+    let animationFrameId;
+    
+    const animate = () => {
+      redrawCanvas();
+      animationFrameId = requestAnimationFrame(animate);
+    };
+    
+    if (animations.length > 0) {
+      animate();
+    }
+    
+    return () => {
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
       }
     };
+  }, [animations, elements, selectedElement, pageColor, panOffset, scale]);
 
+  // Update addAnimation function
+  const addAnimation = (index) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    const imageData = animatedImages[index];
+    const image = new Image();
+    image.crossOrigin = "anonymous";
+    image.src = imageData.url;
+    
+    image.onload = () => {
+      const aspectRatio = image.width / image.height;
+      const width = 200;
+      const height = width / aspectRatio;
+      
+      const newAnimation = {
+        id: generateId(),
+        type: "animation",
+        image,
+        x: Math.random() * (canvas.width - width),
+        y: Math.random() * (canvas.height - height),
+        width,
+        height,
+        animationType: imageData.animation,
+        startTime: Date.now(),
+        duration: 3000
+      };
 
-  
+      setAnimations(prev => [...prev, newAnimation]);
+      redrawCanvas();
+    };
+  };
+
+  // Save canvas as image
+  const saveAsImage = async (filename) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const tempCanvas = document.createElement("canvas");
+    tempCanvas.width = canvas.width;
+    tempCanvas.height = canvas.height;
+    const tempContext = tempCanvas.getContext("2d");
+    if (!tempContext) return;
+    tempContext.fillStyle = pageColor || "white";
+    tempContext.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+    tempContext.translate(panOffset.x, panOffset.y);
+    tempContext.scale(scale, scale);
+    elements.forEach((element) => {
+      if (element.type === "pencil") {
+        tempContext.beginPath();
+        tempContext.moveTo(element.points[0].x, element.points[0].y);
+        element.points.forEach((point) => tempContext.lineTo(point.x, point.y));
+        tempContext.strokeStyle = element.strokeColor;
+        tempContext.lineWidth = element.strokeWidth;
+        tempContext.lineCap = "round";
+        tempContext.lineJoin = "round";
+        tempContext.stroke();
+      } else if (element.type === "cartoon" && element.cartoonType) {
+        const img = cartoonImages[element.cartoonType];
+        if (img) {
+          const x = element.points[0].x;
+          const y = element.points[0].y;
+          const width = element.width || 100;
+          const height = element.height || 100;
+          tempContext.drawImage(img, x, y, width, height);
+        }
+      } else if (element.type === "text" && element.text) {
+        tempContext.font = `${element.textSize}px Comic Sans MS`;
+        tempContext.fillStyle = element.strokeColor;
+        tempContext.fillText(element.text, element.points[0].x, element.points[0].y);
+      } else if (element.roughElement) {
+        roughCanvasRef.current.draw(element.roughElement);
+      }
+    });
+    tempContext.translate(-panOffset.x, -panOffset.y);
+    tempContext.scale(1 / scale, 1 / scale);
+
+    const blob = await new Promise((resolve) => {
+      tempCanvas.toBlob((blob) => resolve(blob), "image/png");
+    });
+
+    const formData = new FormData();
+    formData.append("image", blob, "drawing.png");
+
+    try {
+      const url = import.meta.env.VITE_NGROK_ENDPOINT || "https://fbd9-34-125-87-16.ngrok-free.app/process";
+      const response = await fetch(url, {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        const img = new Image();
+        img.src = `data:image/png;base64,${data.image}`;
+        img.onload = () => {
+          const newElement = createElement(
+            generateId(),
+            0,
+            0,
+            img.width / 2,
+            img.height / 2,
+            "cartoon",
+            null
+          );
+          newElement.cartoonType = `processed-${Date.now()}`;
+          cartoonImages[newElement.cartoonType] = img;
+          newElement.width = img.width / 2;
+          newElement.height = img.height / 2;
+          setElements((prev) => [...prev, newElement]);
+          updateHistory([...elements, newElement]);
+          showCanvasAlert("Yay! Your image has been processed!");
+        };
+      } else {
+        console.error("Error from server:", data.error);
+        showCanvasAlert("Failed to process image!");
+      }
+    } catch (error) {
+      console.error("Network error:", error);
+      showCanvasAlert("Network error while processing image!");
+    }
+  };
+
   // Save canvas as image
   const saveCanvasAsImage = () => {
     const canvas = canvasRef.current;
@@ -312,10 +512,6 @@ export default function InfiniteCanvas() {
     showCanvasAlert("Image downloaded successfully!");
   };
 
-
-
-
-  
   // Handle video search using YouTube API
   const handleVideoSearch = async (query) => {
     if (!query) return;
@@ -559,27 +755,26 @@ export default function InfiniteCanvas() {
   // Save drawing to database
   const saveToDatabase = async () => {
     try {
-      if (!email) {
+      if (!finalEmail) {
         showCanvasAlert("No user email found. Please log in first!");
         return;
       }
-      const cleanElements = elements.map(({ roughElement, ...rest }) => rest);
-      let url = `https://imaginationbook.onrender.com/api/drawings/${email}`;
+
+      const drawingData = {
+        elements: elements.map(({ roughElement, ...rest }) => rest),
+        name: `KidsDrawing-${Date.now()}`,
+        board: "Board1",
+      };
+      let url = `https://imaginationbook.onrender.com/api/drawings/${finalEmail}`;
       let method = "POST";
       if (drawingId) {
-        url = `https://imaginationbook.onrender.com/api/drawings/${drawingId}/${email}`;
+        url = `https://imaginationbook.onrender.com/api/drawings/${drawingId}/${finalEmail}`;
         method = "PUT";
       }
       const response = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          elements: cleanElements,
-          name: `Drawing-${Date.now()}`,
-          userEmail,
-          userPassword,
-          board: "Board2",
-        }),
+        body: JSON.stringify(drawingData),
       });
       const result = await response.json();
       if (response.ok) {
@@ -768,103 +963,6 @@ export default function InfiniteCanvas() {
 
   const handleTouchEnd = () => handleMouseUp();
 
-  // Redraw the canvas
-  const redrawCanvas = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const context = canvas.getContext("2d");
-    if (!context || !roughCanvasRef.current) return;
-    context.clearRect(0, 0, canvas.width, canvas.height);
-    context.save();
-    context.translate(panOffset.x, panOffset.y);
-    context.scale(scale, scale);
-
-    // Draw elements
-    elements.forEach((element) => {
-      context.globalAlpha = 1;
-      if (element.type === "pencil") {
-        context.beginPath();
-        context.moveTo(element.points[0].x, element.points[0].y);
-        element.points.forEach((point) => context.lineTo(point.x, point.y));
-        context.strokeStyle = element.strokeColor;
-        context.lineWidth = element.strokeWidth;
-        context.lineCap = "round";
-        context.lineJoin = "round";
-        context.stroke();
-      } else if (element.type === "cartoon" && element.cartoonType) {
-        const img = cartoonImages[element.cartoonType];
-        if (img) {
-          const x = element.points[0].x;
-          const y = element.points[0].y;
-          const width = element.width || 100;
-          const height = element.height || 100;
-          context.drawImage(img, x, y, width, height);
-          if (selectedElement && selectedElement.id === element.id) {
-            context.strokeStyle = "#FFD700";
-            context.lineWidth = 3;
-            context.strokeRect(x, y, width, height);
-          }
-        }
-      } else if (element.type === "text" && element.text) {
-        context.font = `${element.textSize}px Comic Sans MS`;
-        context.fillStyle = element.strokeColor;
-        context.fillText(element.text, element.points[0].x, element.points[0].y);
-        if (selectedElement && selectedElement.id === element.id) {
-          context.strokeStyle = "#FFD700";
-          context.lineWidth = 3;
-          context.strokeRect(
-            element.points[0].x,
-            element.points[0].y - element.textSize,
-            element.text.length * (element.textSize / 2),
-            element.textSize
-          );
-        }
-      } else if (element.roughElement) {
-        roughCanvasRef.current.draw(element.roughElement);
-      }
-    });
-
-    // Draw video section on canvas if open
-    if (videoSectionOpen) {
-      const videoSectionWidth = window.innerWidth * 0.25;
-      const videoSectionHeight = window.innerHeight * 0.25;
-      const videoSectionX = (window.innerWidth * 0.75) / scale - panOffset.x / scale;
-      const videoSectionY = (window.innerHeight - videoSectionHeight) / scale - panOffset.y / scale;
-
-      // Draw background
-      context.fillStyle = "rgba(255, 255, 255, 0.95)";
-      context.fillRect(videoSectionX, videoSectionY, videoSectionWidth / scale, videoSectionHeight / scale);
-      context.strokeStyle = "#FFD700";
-      context.lineWidth = 4 / scale;
-      context.strokeRect(videoSectionX, videoSectionY, videoSectionWidth / scale, videoSectionHeight / scale);
-
-      // Draw title
-      context.font = `${20 / scale}px Comic Sans MS`;
-      context.fillStyle = "#6B21A8";
-      context.fillText("Fun Videos for Kids!", videoSectionX + 10 / scale, videoSectionY + 30 / scale);
-    }
-
-    context.restore();
-
-    // Draw alert message in top-right corner if present
-    if (alertMessage) {
-      context.save();
-      const alertWidth = 300;
-      const alertHeight = 100;
-      const margin = 20;
-      const x = (canvas.width - alertWidth - margin) / scale;
-      const y = margin / scale;
-      context.fillStyle = "rgba(0, 0, 0, 0.8)";
-      context.fillRect(x, y, alertWidth / scale, alertHeight / scale);
-      context.fillStyle = "#ffffff";
-      context.font = `${24 / scale}px Comic Sans MS`;
-      context.textAlign = "center";
-      context.textBaseline = "middle";
-      context.fillText(alertMessage, x + alertWidth / scale / 2, y + alertHeight / scale / 2);
-      context.restore();
-    }
-  };
-
   // Zoom in
   const zoomIn = () => setScale((prevScale) => Math.min(prevScale * 1.2, 5));
 
@@ -883,9 +981,6 @@ export default function InfiniteCanvas() {
     updateHistory([]);
     setDrawingId(null);
   };
-
-  // Save canvas as image (already defined above)
-  // const saveAsImage = async (filename) => { ... } // This function is replaced by saveCanvasAsImage
 
   // Increase stroke width
   const increaseStrokeWidth = () => setStrokeWidth((prev) => Math.min(prev + 1, 10));
@@ -986,7 +1081,7 @@ export default function InfiniteCanvas() {
     }
   };
 
-  // Magic button options with screenshot
+  // Update handleMagicOption
   const handleMagicOption = (option) => {
     const timestamp = Date.now();
     let filename;
@@ -1000,6 +1095,7 @@ export default function InfiniteCanvas() {
         filename = `video-screenshot-${timestamp}.png`;
         break;
       case "Make Animation":
+        setIsAnimationOpen(true);
         filename = `animation-screenshot-${timestamp}.png`;
         break;
       case "Audio":
@@ -1021,6 +1117,63 @@ export default function InfiniteCanvas() {
   // Prevent scroll propagation
   const handleVideoSectionScroll = (e) => {
     e.stopPropagation();
+  };
+
+  // Add animation types
+  const animationTypes = [
+    { name: "Rotate", value: "rotate" },
+    { name: "Bounce", value: "bounce" },
+    { name: "Pulse", value: "pulse" },
+    { name: "Float", value: "float" }
+  ];
+
+  // Add animation images
+  const animationImages = [
+    { id: 1, src: "https://images.pexels.com/photos/3532557/pexels-photo-3532557.jpeg", alt: "Star" },
+    { id: 2, src: "https://images.pexels.com/photos/3532552/pexels-photo-3532552.jpeg", alt: "Heart" },
+    { id: 3, src: "https://via.placeholder.com/150?text=Cloud", alt: "Cloud" },
+    { id: 4, src: "https://via.placeholder.com/150?text=Tree", alt: "Tree" },
+  ];
+
+  // Add handleImageSelect function
+  const handleImageSelect = (imageSrc, animationType) => {
+    const img = new Image();
+    img.src = imageSrc;
+    img.onload = () => {
+      // Calculate random position within canvas bounds
+      const canvas = canvasRef.current;
+      const maxX = canvas.width - 150; // Subtract image width
+      const maxY = canvas.height - 150; // Subtract image height
+      const randomX = Math.floor(Math.random() * maxX);
+      const randomY = Math.floor(Math.random() * maxY);
+
+      setProcessedImages((prev) => [
+        ...prev,
+        {
+          img,
+          x: randomX - panOffset.x,
+          y: randomY - panOffset.y,
+          width: 150,
+          height: 150,
+          isDragging: false,
+          animationType,
+          startTime: Date.now(),
+          duration: 3000
+        }
+      ]);
+      showCanvasAlert("Animated image added to canvas!");
+    };
+    setShowAnimationDashboard(false);
+  };
+
+  // Add toggleAnimation function
+  const toggleAnimation = () => {
+    setIsAnimating(!isAnimating);
+    if (!isAnimating) {
+      showCanvasAlert("Animation mode activated! Canvas elements will animate.");
+    } else {
+      showCanvasAlert("Animation mode deactivated! Canvas elements will stop animating.");
+    }
   };
 
   return (
@@ -1248,6 +1401,18 @@ export default function InfiniteCanvas() {
           <Download size={28} color="#fff" />
           <span className="block text-xs font-bold text-white">Save</span>
         </button>
+        {/* <button
+          onClick={toggleAnimation}
+          className={`px-4 py-2 rounded-lg text-purple-800 font-bold ${
+            isAnimating ? "bg-purple-300" : "bg-purple-100"
+          } hover:bg-purple-200 transition`}
+        >
+          <svg className="inline-block w-6 h-6 mr-1" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M10 3.5a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-1 0V4a.5.5 0 0 1 .5-.5z"/>
+            <path d="M10.5 10V6a.5.5 0 0 0-1 0v4a.5.5 0 0 0 1 0zm-4 0a.5.5 0 0 0-1 0v4a.5.5 0 0 0 1 0v-4zm8 0a.5.5 0 0 0-1 0v4a.5.5 0 0 0 1 0v-4z"/>
+          </svg>
+          Animate
+        </button> */}
       </div>
 
       {/* Cartoon Menu */}
@@ -1457,6 +1622,106 @@ export default function InfiniteCanvas() {
               <div className="absolute w-16 h-16 border-4 border-purple-500 rounded-full border-t-transparent animate-spin"></div>
             </div>
             <p className="mt-4 text-lg font-semibold text-white">Processing...</p>
+          </div>
+        </div>
+      )}
+
+      {/* Animation Panel */}
+      {isAnimationOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div 
+            className="bg-white rounded-lg p-6 w-full max-w-lg transform animate-[bounceIn_0.5s_ease-out]"
+            style={{
+              animation: `
+                bounceIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55),
+                float 3s ease-in-out infinite
+              `,
+            }}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-gray-800">Add Animated Pictures</h3>
+              <button 
+                onClick={() => setIsAnimationOpen(false)}
+                className="text-gray-500 transition-colors hover:text-gray-700"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="p-4 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg animate-[pulse_2s_infinite]">
+                <div className="text-lg font-medium text-center text-white">
+                  ✨ Click an image to add animation ✨
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                {animatedImages.map((img, i) => (
+                  <div
+                    key={i}
+                    onClick={() => addAnimation(i)}
+                    className="relative overflow-hidden transition-transform transform rounded-lg cursor-pointer aspect-square hover:scale-105"
+                  >
+                    <img 
+                      src={img.url} 
+                      alt={`Animation ${i + 1}`}
+                      className="object-cover w-full h-full"
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center transition-opacity bg-black opacity-0 bg-opacity-30 hover:opacity-100">
+                      <span className="font-bold text-white">{img.animation}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add animation dashboard */}
+      {showAnimationDashboard && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 animate-fade-in">
+          <div className="w-full max-w-2xl p-6 bg-white shadow-2xl rounded-xl animate-slide-up">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-2xl font-bold text-purple-800">Pick an Animation Image!</h3>
+              <button
+                onClick={() => setShowAnimationDashboard(false)}
+                className="text-purple-800 hover:text-purple-600"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <p className="mb-4 text-lg text-purple-600">Click on an image to add it to the canvas in a random position!</p>
+            <div className="grid grid-cols-4 gap-4">
+              {animationImages.map((image) => (
+                <div key={image.id} className="space-y-2">
+                  <button
+                    onClick={() => handleImageSelect(image.src, "rotate")}
+                    className="relative w-full group"
+                  >
+                    <img
+                      src={image.src}
+                      alt={image.alt}
+                      className="object-cover w-24 h-24 transition transform rounded-lg group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 transition bg-black bg-opacity-0 rounded-lg group-hover:bg-opacity-20"></div>
+                  </button>
+                  <div className="flex justify-center space-x-2">
+                    {animationTypes.map((type) => (
+                      <button
+                        key={type.value}
+                        onClick={() => handleImageSelect(image.src, type.value)}
+                        className="px-2 py-1 text-sm text-purple-800 bg-purple-100 rounded hover:bg-purple-200"
+                      >
+                        {type.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
