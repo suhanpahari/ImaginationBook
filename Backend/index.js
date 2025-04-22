@@ -14,7 +14,7 @@ const port = process.env.PORT || 3000;
 app.use(express.json())
 app.use(express.urlencoded({extended: true}))
 app.use(cors({ origin: "https://imaginationbook-5d4r.onrender.com" }));
-
+app.use(cors({origin : "http://localhost:5000"}))
 // app.use(cors({
 //   origin: 'https://9461-35-240-135-136.ngrok-free.app',
 //   methods: ['GET', 'POST', 'PUT', 'DELETE'],
