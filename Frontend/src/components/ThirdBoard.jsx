@@ -62,6 +62,9 @@ export default function InfiniteCanvas() {
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const navigate = useNavigate();
+  const [isAnimationOpen, setIsAnimationOpen] = useState(false);
+  const [animations, setAnimations] = useState([]);
+  const animationFrameRef = useRef(null);
 
   const email = useSelector((state) => state.user.userEmail);
   const password = useSelector((state) => state.user.userPassword);
@@ -386,41 +389,39 @@ export default function InfiniteCanvas() {
   // Save drawing to database
   const saveToDatabase = async () => {
     try {
-      if (!email) {
-        showCanvasAlert("Please log in to save your picture!");
+      if (!finalEmail) {
+        showCanvasAlert("No user email found. Please log in first!");
         return;
       }
-      const cleanElements = elements.map(({ roughElement, ...rest }) => rest);
-      let url = `https://imaginationbook.onrender.com/api/drawings/${email}`;
+
+      const drawingData = {
+        elements: elements.map(({ roughElement, ...rest }) => rest),
+        name: `KidsDrawing-${Date.now()}`,
+        board: "Board1",
+      };
+      let url = `https://imaginationbook.onrender.com/api/drawings/${finalEmail}`;
       let method = "POST";
       if (drawingId) {
-        url = `https://imaginationbook.onrender.com/api/drawings/${drawingId}/${email}`;
+        url = `https://imaginationbook.onrender.com/api/drawings/${drawingId}/${finalEmail}`;
         method = "PUT";
       }
       const response = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          elements: cleanElements,
-          name: `Drawing-${Date.now()}`,
-          userEmail,
-          userPassword,
-          board: "Board2",
-        }),
+        body: JSON.stringify(drawingData),
       });
       const result = await response.json();
       if (response.ok) {
         if (!drawingId) setDrawingId(result.id);
-        showCanvasAlert("Hooray! Your picture is saved!");
+        showCanvasAlert("Yay! Your drawing is saved!");
       } else {
         throw new Error(result.error || "Failed to save drawing");
       }
     } catch (error) {
       console.error("Error saving drawing:", error);
-      showCanvasAlert("Oops! Can't save your picture!");
+      showCanvasAlert("Oops! Couldn't save your drawing!");
     }
   };
-
   // Handle mouse down
   const handleMouseDown = (event) => {
     if (event.button !== 0) return;
@@ -601,14 +602,76 @@ export default function InfiniteCanvas() {
     if (!canvas) return;
     const context = canvas.getContext("2d");
     if (!context || !roughCanvasRef.current) return;
+
+    // Clear canvas
     context.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Fill background
+    context.fillStyle = pageColor || "white";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Save context state
     context.save();
     context.translate(panOffset.x, panOffset.y);
     context.scale(scale, scale);
 
-    // Draw elements
+    // Draw animations
+    animations.forEach((anim) => {
+      if (!anim.image) return;
+      
+      context.save();
+      const now = Date.now();
+      const progress = ((now - anim.startTime) % anim.duration) / anim.duration;
+      
+      // Set opacity for animations
+      context.globalAlpha = 0.5;
+      
+      // Apply different animations based on type
+      switch (anim.animationType) {
+        case "rotate":
+          context.translate(anim.x + anim.width/2, anim.y + anim.height/2);
+          context.rotate(progress * Math.PI * 2);
+          context.translate(-(anim.x + anim.width/2), -(anim.y + anim.height/2));
+          break;
+          
+        case "bounce":
+          const bounceOffset = Math.abs(Math.sin(progress * Math.PI * 2)) * 30;
+          context.translate(0, -bounceOffset);
+          break;
+          
+        case "pulse":
+          const scale = 1 + Math.sin(progress * Math.PI * 2) * 0.1;
+          context.translate(anim.x + anim.width/2, anim.y + anim.height/2);
+          context.scale(scale, scale);
+          context.translate(-(anim.x + anim.width/2), -(anim.y + anim.height/2));
+          break;
+          
+        case "float":
+          const floatOffsetX = Math.sin(progress * Math.PI * 2) * 20;
+          const floatOffsetY = Math.cos(progress * Math.PI * 2) * 20;
+          context.translate(floatOffsetX, floatOffsetY);
+          break;
+      }
+      
+      // Draw the animation image
+      context.drawImage(anim.image, anim.x, anim.y, anim.width, anim.height);
+      
+      // Draw selection border if selected
+      if (selectedElement?.id === anim.id) {
+        context.globalAlpha = 1;
+        context.strokeStyle = "#FFD700";
+        context.lineWidth = 2;
+        context.strokeRect(anim.x - 2, anim.y - 2, anim.width + 4, anim.height + 4);
+      }
+      
+      context.restore();
+    });
+
+    // Reset opacity for other elements
+    context.globalAlpha = 1;
+
+    // Draw other elements
     elements.forEach((element) => {
-      context.globalAlpha = 1;
       if (element.type === "pencil") {
         context.beginPath();
         context.moveTo(element.points[0].x, element.points[0].y);
@@ -626,76 +689,31 @@ export default function InfiniteCanvas() {
           const width = element.width || 100;
           const height = element.height || 100;
           context.drawImage(img, x, y, width, height);
-          if (selectedElement && selectedElement.id === element.id) {
-            context.strokeStyle = "#6366F1";
-            context.lineWidth = 4;
-            context.strokeRect(x, y, width, height);
-          }
         }
       } else if (element.type === "text" && element.text) {
-        context.font = `${element.textSize}px 'Bubblegum Sans', cursive`;
+        context.font = `${element.textSize}px Comic Sans MS`;
         context.fillStyle = element.strokeColor;
         context.fillText(element.text, element.points[0].x, element.points[0].y);
-        if (selectedElement && selectedElement.id === element.id) {
-          context.strokeStyle = "#6366F1";
-          context.lineWidth = 4;
-          context.strokeRect(
-            element.points[0].x,
-            element.points[0].y - element.textSize,
-            element.text.length * (element.textSize / 2),
-            element.textSize
-          );
-        }
       } else if (element.roughElement) {
         roughCanvasRef.current.draw(element.roughElement);
       }
     });
 
-    // Draw video section on canvas if open
-    if (videoSectionOpen) {
-      const videoSectionWidth = window.innerWidth * 0.25;
-      const videoSectionHeight = window.innerHeight * 0.25;
-      const videoSectionX = (window.innerWidth * 0.75) / scale - panOffset.x / scale;
-      const videoSectionY = (window.innerHeight - videoSectionHeight) / scale - panOffset.y / scale;
-
-      // Draw background
-      context.fillStyle = "rgba(224, 242, 254, 0.9)";
-      context.fillRect(videoSectionX, videoSectionY, videoSectionWidth / scale, videoSectionHeight / scale);
-      context.strokeStyle = "#60A5FA";
-      context.lineWidth = 6 / scale;
-      context.strokeRect(videoSectionX, videoSectionY, videoSectionWidth / scale, videoSectionHeight / scale);
-
-      // Draw title
-      context.font = `${24 / scale}px 'Bubblegum Sans', cursive`;
-      context.fillStyle = "#1E40AF";
-      context.fillText("Cool Videos!", videoSectionX + 10 / scale, videoSectionY + 30 / scale);
-    }
-
+    // Restore context state
     context.restore();
 
-    // Draw alert message in top-right corner if present
+    // Draw alert message if present
     if (alertMessage) {
       context.save();
-      const alertWidth = 350;
-      const alertHeight = 120;
+      const alertWidth = 300;
+      const alertHeight = 100;
       const margin = 20;
       const x = (canvas.width - alertWidth - margin) / scale;
       const y = margin / scale;
-      
-      // Draw alert background with rounded corners
-      context.fillStyle = "rgba(254, 249, 195, 0.95)";
-      context.beginPath();
-      context.roundRect(x, y, alertWidth / scale, alertHeight / scale, 16 / scale);
-      context.fill();
-      
-      context.strokeStyle = "#6366F1";
-      context.lineWidth = 4 / scale;
-      context.beginPath();
-      context.roundRect(x, y, alertWidth / scale, alertHeight / scale, 16 / scale);
-      context.stroke();
-      
-      context.fillStyle = "#1E293B";
-      context.font = `${28 / scale}px 'Bubblegum Sans', cursive`;
+      context.fillStyle = "rgba(0, 0, 0, 0.8)";
+      context.fillRect(x, y, alertWidth / scale, alertHeight / scale);
+      context.fillStyle = "#ffffff";
+      context.font = `${24 / scale}px Comic Sans MS`;
       context.textAlign = "center";
       context.textBaseline = "middle";
       context.fillText(alertMessage, x + alertWidth / scale / 2, y + alertHeight / scale / 2);
@@ -993,6 +1011,7 @@ export default function InfiniteCanvas() {
         filename = `video-screenshot-${timestamp}.png`;
         break;
       case "Make Animation":
+        setIsAnimationOpen(true);
         filename = `animation-screenshot-${timestamp}.png`;
         break;
       case "Audio":
@@ -1015,6 +1034,79 @@ export default function InfiniteCanvas() {
   const handleVideoSectionScroll = (e) => {
     e.stopPropagation();
   };
+
+  // Add animation images
+  const animatedImages = [
+    {
+      url: "https://images.pexels.com/photos/3532552/pexels-photo-3532552.jpeg",
+      animation: "rotate"
+    },
+    {
+      url: "https://images.pexels.com/photos/3532557/pexels-photo-3532557.jpeg",
+      animation: "bounce"
+    },
+    {
+      url: "https://images.pexels.com/photos/3532544/pexels-photo-3532544.jpeg",
+      animation: "pulse"
+    },
+    {
+      url: "https://images.pexels.com/photos/3532548/pexels-photo-3532548.jpeg",
+      animation: "float"
+    }
+  ];
+
+  // Add animation function
+  const addAnimation = (index) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    const imageData = animatedImages[index];
+    const image = new Image();
+    image.crossOrigin = "anonymous";
+    image.src = imageData.url;
+    
+    image.onload = () => {
+      const aspectRatio = image.width / image.height;
+      const width = 200;
+      const height = width / aspectRatio;
+      
+      const newAnimation = {
+        id: generateId(),
+        type: "animation",
+        image,
+        x: Math.random() * (canvas.width - width),
+        y: Math.random() * (canvas.height - height),
+        width,
+        height,
+        animationType: imageData.animation,
+        startTime: Date.now(),
+        duration: 3000
+      };
+
+      setAnimations(prev => [...prev, newAnimation]);
+      redrawCanvas();
+    };
+  };
+
+  // Update animation frame effect
+  useEffect(() => {
+    let animationFrameId;
+    
+    const animate = () => {
+      redrawCanvas();
+      animationFrameId = requestAnimationFrame(animate);
+    };
+    
+    if (animations.length > 0) {
+      animate();
+    }
+    
+    return () => {
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+      }
+    };
+  }, [animations, elements, selectedElement, pageColor, panOffset, scale]);
 
   return (
     <div
@@ -1483,6 +1575,58 @@ export default function InfiniteCanvas() {
               <div className="absolute w-20 h-20 border-4 border-purple-500 rounded-full border-t-transparent animate-spin"></div>
             </div>
             <p className="mt-4 text-xl font-bold text-white">Loading Fun...</p>
+          </div>
+        </div>
+      )}
+
+      {/* Animation Panel */}
+      {isAnimationOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div 
+            className="bg-white rounded-lg p-6 w-full max-w-lg transform animate-[bounceIn_0.5s_ease-out]"
+            style={{
+              animation: `
+                bounceIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55),
+                float 3s ease-in-out infinite
+              `,
+            }}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-gray-800">Add Animated Pictures</h3>
+              <button 
+                onClick={() => setIsAnimationOpen(false)}
+                className="text-gray-500 transition-colors hover:text-gray-700"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="p-4 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg animate-[pulse_2s_infinite]">
+                <div className="text-lg font-medium text-center text-white">
+                  ✨ Click an image to add animation ✨
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                {animatedImages.map((img, i) => (
+                  <div
+                    key={i}
+                    onClick={() => addAnimation(i)}
+                    className="relative overflow-hidden transition-transform transform rounded-lg cursor-pointer aspect-square hover:scale-105"
+                  >
+                    <img 
+                      src={img.url} 
+                      alt={`Animation ${i + 1}`}
+                      className="object-cover w-full h-full"
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center transition-opacity bg-black opacity-0 bg-opacity-30 hover:opacity-100">
+                      <span className="font-bold text-white">{img.animation}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       )}
