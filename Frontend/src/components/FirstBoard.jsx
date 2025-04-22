@@ -1,3 +1,4 @@
+// FirstBoard.jsx
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import rough from "roughjs/bundled/rough.esm";
 import getStroke from "perfect-freehand";
@@ -34,6 +35,22 @@ const fillOptions = [
   { name: "Cross-hatch", value: "cross-hatch" },
 ];
 
+// Predefined images for the animation dashboard
+const animationImages = [
+  { id: 1, src: "https://images.pexels.com/photos/3532557/pexels-photo-3532557.jpeg", alt: "Star" },
+  { id: 2, src: "https://images.pexels.com/photos/3532552/pexels-photo-3532552.jpeg", alt: "Heart" },
+  { id: 3, src: "https://images.pexels.com/photos/3532544/pexels-photo-3532544.jpeg", alt: "Cloud" },
+  { id: 4, src: "https://images.pexels.com/photos/3532548/pexels-photo-3532548.jpeg", alt: "Tree" },
+];
+
+// Add animation types for elements
+const elementAnimationTypes = [
+  { name: "Float", value: "float" },
+  { name: "Bounce", value: "bounce" },
+  { name: "Pulse", value: "pulse" },
+  { name: "Wave", value: "wave" }
+];
+
 const createElement = (id, x1, y1, x2, y2, type, options = {}) => {
   const { strokeColor = "#000000", strokeWidth = type === "text" ? 36 : 2, fillStyle = "none", fill = "none", text = "" } = options;
   const roughOptions = {
@@ -44,32 +61,26 @@ const createElement = (id, x1, y1, x2, y2, type, options = {}) => {
     roughness: 1.5,
   };
 
+  // Add random animation type for each element
+  const animationType = elementAnimationTypes[Math.floor(Math.random() * elementAnimationTypes.length)].value;
+  const startTime = Date.now();
+
   switch (type) {
     case "line":
       const roughLine = generator.line(x1, y1, x2, y2, roughOptions);
-      return { id, x1, y1, x2, y2, type, roughElement: roughLine, ...options };
+      return { id, x1, y1, x2, y2, type, roughElement: roughLine, animationType, startTime, ...options };
     case "rectangle":
       const roughRect = generator.rectangle(x1, y1, x2 - x1, y2 - y1, roughOptions);
-      return { id, x1, y1, x2, y2, type, roughElement: roughRect, ...options };
+      return { id, x1, y1, x2, y2, type, roughElement: roughRect, animationType, startTime, ...options };
     case "pencil":
-      return { id, type, points: [{ x: x1, y: y1 }], ...options };
+      return { id, type, points: [{ x: x1, y: y1 }], animationType, startTime, ...options };
     case "text":
       const canvas = document.createElement("canvas");
       const context = canvas.getContext("2d");
       context.font = `${strokeWidth}px 'Comic Sans MS', 'Chalkboard', sans-serif`;
       const textWidth = context.measureText(text).width;
       const textHeight = strokeWidth;
-      return {
-        id,
-        type,
-        x1,
-        y1,
-        x2: x1 + textWidth,
-        y2: y1 + textHeight,
-        text,
-        strokeColor,
-        strokeWidth,
-      };
+      return { id, type, x1, y1, x2: x1 + textWidth, y2: y1 + textHeight, text, strokeColor, strokeWidth, animationType, startTime };
     default:
       throw new Error(`Type not recognised: ${type}`);
   }
@@ -191,59 +202,32 @@ const getSvgPathFromStroke = (stroke) => {
   d.push("Z");
   return d.join(" ");
 };
-const drawElement = (roughCanvas, context, element) => {
-  switch (element.type) {
-    case "line":
-    case "rectangle":
-      roughCanvas.draw(element.roughElement);
-      break;
-    case "pencil":
-      const stroke = getSvgPathFromStroke(
-        getStroke(element.points, {
-          size: element.strokeWidth || 2,
-          thinning: 0.5,
-          smoothing: 0.5,
-          streamline: 0.5,
-        })
-      );
-      context.fillStyle = element.strokeColor || "#000000";
-      context.fill(new Path2D(stroke));
-      break;
-    case "text":
-      context.textBaseline = "top";
-      const fontSize = Math.max(element.strokeWidth || 36, 24);
-      context.font = `${fontSize}px 'Comic Sans MS', 'Chalkboard', sans-serif`;
-      context.fillStyle = element.strokeColor || "#000000";
-      if (element.text) {
-        context.fillText(element.text, element.x1, element.y1);
-      }
-      break;
-    default:
-      throw new Error(`Type not recognised: ${element.type}`);
-  }
-};
-const adjustmentRequired = (type) => ["line", "rectangle"].includes(type);
-const usePressedKeys = () => {
-  const [pressedKeys, setPressedKeys] = useState(new Set());
-  useEffect(() => {
-    const handleKeyDown = (event) => setPressedKeys((prev) => new Set(prev).add(event.key));
-    const handleKeyUp = (event) =>
-      setPressedKeys((prev) => {
-        const updated = new Set(prev);
-        updated.delete(event.key);
-        return updated;
-      });
-    window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("keyup", handleKeyUp);
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("keyup", handleKeyUp);
-    };
-  }, []);
-  return pressedKeys;
-};
 
 const FirstBoard = () => {
+  // Add usePressedKeys hook at the top of the component
+  const usePressedKeys = () => {
+    const [pressedKeys, setPressedKeys] = useState(new Set());
+    useEffect(() => {
+      const handleKeyDown = (event) => setPressedKeys((prev) => new Set(prev).add(event.key));
+      const handleKeyUp = (event) =>
+        setPressedKeys((prev) => {
+          const updated = new Set(prev);
+          updated.delete(event.key);
+          return updated;
+        });
+      window.addEventListener("keydown", handleKeyDown);
+      window.addEventListener("keyup", handleKeyUp);
+      return () => {
+        window.removeEventListener("keydown", handleKeyDown);
+        window.removeEventListener("keyup", handleKeyUp);
+      };
+    }, []);
+    return pressedKeys;
+  };
+
+  // Add adjustmentRequired function
+  const adjustmentRequired = (type) => ["line", "rectangle"].includes(type);
+
   const [elements, setElements, undo, redo] = useHistory([]);
   const [action, setAction] = useState("none");
   const [tool, setTool] = useState("pencil");
@@ -266,10 +250,12 @@ const FirstBoard = () => {
   const [selectedVideoId, setSelectedVideoId] = useState(null);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState("kids educational videos");
-  const [processedImage, setProcessedImage] = useState(null);
+  const [processedImages, setProcessedImages] = useState([]);
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [alertMessage, setAlertMessage] = useState(null);
+  const [showAnimationDashboard, setShowAnimationDashboard] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(false);
   const textAreaRef = useRef();
   const canvasRef = useRef();
   const pressedKeys = usePressedKeys();
@@ -282,18 +268,13 @@ const FirstBoard = () => {
   const email = useSelector((state) => state.user.userEmail);
   const password = useSelector((state) => state.user.userPassword);
 
-  const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY
-  const GROQ_API_URL = import.meta.env.VITE_GROQ_API_URL 
-  
+  const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY;
+  const GROQ_API_URL = import.meta.env.VITE_GROQ_API_URL;
 
-  
   let finalEmail = localStorage.getItem("email") || email;
   let finalPassword = localStorage.getItem("password") || password;
 
-  console.log("Final Email:", finalEmail);
-  console.log("Final Password:", finalPassword);
-
-  if(!finalEmail && !finalPassword) { 
+  if (!finalEmail && !finalPassword) {
     navigate("/");
   }
 
@@ -305,18 +286,15 @@ const FirstBoard = () => {
   const fetchVideos = async (query = "Drawing video") => {
     try {
       setIsLoading(true);
-      const response = await axios.get(
-        "https://www.googleapis.com/youtube/v3/search",
-        {
-          params: {
-            part: "snippet",
-            q: query,
-            type: "video",
-            maxResults: 200,
-            key: import.meta.env.VITE_YOUTUBE_API_KEY,
-          },
-        }
-      );
+      const response = await axios.get("https://www.googleapis.com/youtube/v3/search", {
+        params: {
+          part: "snippet",
+          q: query,
+          type: "video",
+          maxResults: 200,
+          key: import.meta.env.VITE_YOUTUBE_API_KEY,
+        },
+      });
       const videos = response.data.items.map((item) => ({
         id: item.id.videoId,
         title: item.snippet.title,
@@ -334,64 +312,103 @@ const FirstBoard = () => {
   };
 
   useLayoutEffect(() => {
-    const canvas = canvasRef.current;
-    const context = canvas.getContext("2d");
-    const roughCanvas = rough.canvas(canvas);
+    let animationFrameId;
+    const animate = () => {
+      if (canvasRef.current) {
+        const canvas = canvasRef.current;
+        const context = canvas.getContext("2d");
+        const roughCanvas = rough.canvas(canvas);
 
-    context.clearRect(0, 0, canvas.width, canvas.height);
+        context.clearRect(0, 0, canvas.width, canvas.height);
 
-    if (showGrid) {
-      context.save();
-      context.translate(panOffset.x, panOffset.y);
-      context.strokeStyle = "#ccc";
-      context.lineWidth = 0.5;
-      const gridSize = 20;
-      for (let x = 0; x < canvas.width; x += gridSize) {
-        context.beginPath();
-        context.moveTo(x, 0);
-        context.lineTo(x, canvas.height);
-        context.stroke();
+        if (showGrid) {
+          context.save();
+          context.translate(panOffset.x, panOffset.y);
+          context.strokeStyle = "#ccc";
+          context.lineWidth = 0.5;
+          const gridSize = 20;
+          for (let x = 0; x < canvas.width; x += gridSize) {
+            context.beginPath();
+            context.moveTo(x, 0);
+            context.lineTo(x, canvas.height);
+            context.stroke();
+          }
+          for (let y = 0; y < canvas.height; y += gridSize) {
+            context.beginPath();
+            context.moveTo(0, y);
+            context.lineTo(canvas.width, y);
+            context.stroke();
+          }
+          context.restore();
+        }
+
+        context.save();
+        context.translate(panOffset.x, panOffset.y);
+
+        // Draw canvas elements (lines, rectangles, pencil drawings)
+        elements.forEach((element) => {
+          if (action === "writing" && selectedElement?.id === element.id) return;
+          drawElement(roughCanvas, context, element);
+        });
+
+        // Always animate images
+        processedImages.forEach((image) => {
+          const elapsed = Date.now() - image.startTime;
+          const progress = (elapsed % image.duration) / image.duration;
+          
+          context.save();
+          context.globalAlpha = 0.7;
+          
+          switch (image.animationType) {
+            case "rotate":
+              context.translate(image.x + image.width / 2, image.y + image.height / 2);
+              context.rotate(progress * Math.PI * 2);
+              context.translate(-(image.x + image.width / 2), -(image.y + image.height / 2));
+              break;
+            case "bounce":
+              const bounceHeight = Math.sin(progress * Math.PI * 2) * 20;
+              context.translate(0, bounceHeight);
+              break;
+            case "pulse":
+              const scale = 1 + Math.sin(progress * Math.PI * 2) * 0.2;
+              context.translate(image.x + image.width / 2, image.y + image.height / 2);
+              context.scale(scale, scale);
+              context.translate(-(image.x + image.width / 2), -(image.y + image.height / 2));
+              break;
+            case "float":
+              const floatOffset = Math.sin(progress * Math.PI * 2) * 10;
+              context.translate(0, floatOffset);
+              break;
+          }
+          
+          context.drawImage(image.img, image.x, image.y, image.width, image.height);
+          context.restore();
+        });
+
+        if (alertMessage) {
+          context.save();
+          context.fillStyle = "rgba(0, 0, 0, 0.8)";
+          context.fillRect(canvas.width / 2 - 150, canvas.height / 2 - 50, 300, 100);
+          context.fillStyle = "#ffffff";
+          context.font = "24px 'Comic Sans MS', 'Chalkboard', sans-serif";
+          context.textAlign = "center";
+          context.textBaseline = "middle";
+          context.fillText(alertMessage, canvas.width / 2, canvas.height / 2);
+          context.restore();
+        }
+
+        context.restore();
       }
-      for (let y = 0; y < canvas.height; y += gridSize) {
-        context.beginPath();
-        context.moveTo(0, y);
-        context.lineTo(canvas.width, y);
-        context.stroke();
+      animationFrameId = requestAnimationFrame(animate);
+    };
+
+    animate();
+    return () => {
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
       }
-      context.restore();
-    }
-
-    context.save();
-    context.translate(panOffset.x, panOffset.y);
-    elements.forEach((element) => {
-      if (action === "writing" && selectedElement?.id === element.id) return;
-      drawElement(roughCanvas, context, element);
-    });
-
-    if (processedImage) {
-      context.drawImage(
-        processedImage.img,
-        processedImage.x,
-        processedImage.y,
-        processedImage.width,
-        processedImage.height
-      );
-    }
-
-    if (alertMessage) {
-      context.save();
-      context.fillStyle = "rgba(0, 0, 0, 0.8)";
-      context.fillRect(canvas.width / 2 - 150, canvas.height / 2 - 50, 300, 100);
-      context.fillStyle = "#ffffff";
-      context.font = "24px 'Comic Sans MS', 'Chalkboard', sans-serif";
-      context.textAlign = "center";
-      context.textBaseline = "middle";
-      context.fillText(alertMessage, canvas.width / 2, canvas.height / 2);
-      context.restore();
-    }
-
-    context.restore();
-  }, [elements, action, selectedElement, panOffset, showGrid, processedImage, alertMessage]);
+    };
+  }, [elements, action, selectedElement, panOffset, showGrid, processedImages, alertMessage, isAnimating]);
 
   useEffect(() => {
     const undoRedoFunction = (event) => {
@@ -436,57 +453,65 @@ const FirstBoard = () => {
     return () => window.removeEventListener("resize", handleResize);
   }, [showVideoSection]);
 
-  const handleMouseDown = (event) => {
-    if (!processedImage || action !== "none") return;
+  const handleMouseDown = (event, imageIndex) => {
+    if (!processedImages[imageIndex] || action !== "none") return;
 
     const { clientX, clientY } = getCoordinates(event);
     const mouseX = clientX - panOffset.x;
     const mouseY = clientY - panOffset.y;
+    const image = processedImages[imageIndex];
 
     if (
-      mouseX >= processedImage.x &&
-      mouseX <= processedImage.x + processedImage.width &&
-      mouseY >= processedImage.y &&
-      mouseY <= processedImage.y + processedImage.height
+      mouseX >= image.x &&
+      mouseX <= image.x + image.width &&
+      mouseY >= image.y &&
+      mouseY <= image.y + image.height
     ) {
       setIsDragging(true);
-      setDragOffset({
-        x: mouseX - processedImage.x,
-        y: mouseY - processedImage.y,
-      });
+      setDragOffset({ x: mouseX - image.x, y: mouseY - image.y });
+      setProcessedImages((prev) =>
+        prev.map((img, i) => (i === imageIndex ? { ...img, isDragging: true } : img))
+      );
     }
   };
 
   const handleMouseMove = (event) => {
-    if (!isDragging || !processedImage) return;
+    if (!isDragging) return;
 
     const { clientX, clientY } = getCoordinates(event);
     const mouseX = clientX - panOffset.x;
     const mouseY = clientY - panOffset.y;
 
-    setProcessedImage((prev) => ({
-      ...prev,
-      x: mouseX - dragOffset.x,
-      y: mouseY - dragOffset.y,
-    }));
+    setProcessedImages((prev) =>
+      prev.map((image) =>
+        image.isDragging
+          ? { ...image, x: mouseX - dragOffset.x, y: mouseY - dragOffset.y }
+          : image
+      )
+    );
   };
 
   const handleMouseUp = () => {
     setIsDragging(false);
+    setProcessedImages((prev) => prev.map((image) => ({ ...image, isDragging: false })));
   };
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    canvas.addEventListener("mousedown", handleMouseDown);
+    canvas.addEventListener("mousedown", (e) => {
+      processedImages.forEach((_, index) => handleMouseDown(e, index));
+    });
     canvas.addEventListener("mousemove", handleMouseMove);
     canvas.addEventListener("mouseup", handleMouseUp);
 
     return () => {
-      canvas.removeEventListener("mousedown", handleMouseDown);
+      canvas.removeEventListener("mousedown", (e) =>
+        processedImages.forEach((_, index) => handleMouseDown(e, index))
+      );
       canvas.removeEventListener("mousemove", handleMouseMove);
       canvas.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [processedImage, isDragging, dragOffset, panOffset]);
+  }, [processedImages, isDragging, dragOffset, panOffset]);
 
   const updateElement = (id, x1, y1, x2, y2, type, options) => {
     const elementsCopy = [...elements];
@@ -674,15 +699,9 @@ const FirstBoard = () => {
     elements.forEach((element) => {
       drawElement(rough.canvas(tempCanvas), tempContext, element);
     });
-    if (processedImage) {
-      tempContext.drawImage(
-        processedImage.img,
-        processedImage.x,
-        processedImage.y,
-        processedImage.width,
-        processedImage.height
-      );
-    }
+    processedImages.forEach((image) => {
+      tempContext.drawImage(image.img, image.x, image.y, image.width, image.height);
+    });
     tempContext.translate(-panOffset.x, -panOffset.y);
 
     const blob = await new Promise((resolve) => {
@@ -705,13 +724,20 @@ const FirstBoard = () => {
         const img = new Image();
         img.src = `data:image/png;base64,${data.image}`;
         img.onload = () => {
-          setProcessedImage({
-            img,
-            x: 0,
-            y: 0,
-            width: img.width / 2,
-            height: img.height / 2,
-          });
+          setProcessedImages((prev) => [
+            ...prev,
+            {
+              img,
+              x: 0,
+              y: 0,
+              width: img.width / 2,
+              height: img.height / 2,
+              isDragging: false,
+              animationType: "rotate",
+              startTime: Date.now(),
+              duration: 3000
+            }
+          ]);
         };
       } else {
         console.error("Error from server:", data.error);
@@ -736,15 +762,9 @@ const FirstBoard = () => {
     elements.forEach((element) => {
       drawElement(rough.canvas(tempCanvas), tempContext, element);
     });
-    if (processedImage) {
-      tempContext.drawImage(
-        processedImage.img,
-        processedImage.x,
-        processedImage.y,
-        processedImage.width,
-        processedImage.height
-      );
-    }
+    processedImages.forEach((image) => {
+      tempContext.drawImage(image.img, image.x, image.y, image.width, image.height);
+    });
     tempContext.translate(-panOffset.x, -panOffset.y);
 
     const link = document.createElement("a");
@@ -788,23 +808,6 @@ const FirstBoard = () => {
       showCanvasAlert("Oops! Couldn't save your drawing!");
     }
   };
-
-  // const loadFromDatabase = async (id = "67feafe97904e414cabecb3f") => {
-  //   try {
-  //     const response = await fetch(`http://localhost:3000/api/drawings/${id}/${email}`);
-  //     const result = await response.json();
-  //     if (response.ok) {
-  //       setElements(result.elements);
-  //       setDrawingId(result.id);
-  //       showCanvasAlert("Cool! Your drawing is loaded!");
-  //     } else {
-  //       throw new Error(result.error || "Failed to load drawing");
-  //     }
-  //   } catch (error) {
-  //     console.error("Error loading drawing:", error);
-  //     showCanvasAlert("Oops! Couldn't load the drawing!");
-  //   }
-  // };
 
   const toggleMagicMenu = () => setMagicMenuOpen(!magicMenuOpen);
 
@@ -860,7 +863,6 @@ const FirstBoard = () => {
         },
       });
 
-      console.log("API Response:", response.data);
       const transcription = response.data.text || response.data.transcription;
       if (transcription) {
         const id = elements.length;
@@ -871,12 +873,7 @@ const FirstBoard = () => {
           strokeWidth: 36,
           text: transcription,
         });
-        console.log("Text element:", textElement);
-        setElements((prev) => {
-          const newElements = [...prev, textElement];
-          console.log("Updated elements:", newElements);
-          return newElements;
-        });
+        setElements((prev) => [...prev, textElement]);
         setAction("none");
         setSelectedElement(null);
         showCanvasAlert("Yay! Your audio has been transcribed!");
@@ -906,6 +903,7 @@ const FirstBoard = () => {
         break;
       case "Make Animation":
         filename = `animation-screenshot-${timestamp}.png`;
+        setShowAnimationDashboard(true); // Open the animation dashboard
         break;
       case "Audio":
         filename = `audio-screenshot-${timestamp}.png`;
@@ -920,7 +918,38 @@ const FirstBoard = () => {
     }
 
     setMagicMenuOpen(false);
-    console.log(`Selected: ${option} -  saved as ${filename}`);
+    console.log(`Selected: ${option} - saved as ${filename}`);
+  };
+
+  // Update handleImageSelect function to place images randomly
+  const handleImageSelect = (imageSrc, animationType) => {
+    const img = new Image();
+    img.src = imageSrc;
+    img.onload = () => {
+      // Calculate random position within canvas bounds
+      const canvas = canvasRef.current;
+      const maxX = canvas.width - 150; // Subtract image width
+      const maxY = canvas.height - 150; // Subtract image height
+      const randomX = Math.floor(Math.random() * maxX);
+      const randomY = Math.floor(Math.random() * maxY);
+
+      setProcessedImages((prev) => [
+        ...prev,
+        {
+          img,
+          x: randomX - panOffset.x,
+          y: randomY - panOffset.y,
+          width: 150,
+          height: 150,
+          isDragging: false,
+          animationType,
+          startTime: Date.now(),
+          duration: 3000
+        }
+      ]);
+      showCanvasAlert("Animated image added to canvas!");
+    };
+    setShowAnimationDashboard(false);
   };
 
   const playerOptions = {
@@ -940,16 +969,155 @@ const FirstBoard = () => {
     e.stopPropagation();
   };
 
+  const toggleAnimation = () => {
+    setIsAnimating(!isAnimating);
+    if (!isAnimating) {
+      showCanvasAlert("Animation mode activated! Canvas elements will animate.");
+    } else {
+      showCanvasAlert("Animation mode deactivated! Canvas elements will stop animating.");
+    }
+  };
+
+  // Move drawElement function inside the component
+  const drawElement = (roughCanvas, context, element) => {
+    // Always draw text elements without animation
+    if (element.type === "text") {
+      context.textBaseline = "top";
+      const fontSize = Math.max(element.strokeWidth || 36, 24);
+      context.font = `${fontSize}px 'Comic Sans MS', 'Chalkboard', sans-serif`;
+      context.fillStyle = element.strokeColor || "#000000";
+      if (element.text) {
+        context.fillText(element.text, element.x1, element.y1);
+      }
+      return;
+    }
+
+    // For non-text elements, apply animations only if isAnimating is true
+    if (isAnimating) {
+      const elapsed = Date.now() - element.startTime;
+      const progress = (elapsed % 3000) / 3000;
+
+      context.save();
+      
+      switch (element.animationType) {
+        case "float":
+          const floatOffset = Math.sin(progress * Math.PI * 2) * 10;
+          context.translate(0, floatOffset);
+          break;
+        case "bounce":
+          const bounceHeight = Math.sin(progress * Math.PI * 2) * 15;
+          context.translate(0, bounceHeight);
+          break;
+        case "pulse":
+          const scale = 1 + Math.sin(progress * Math.PI * 2) * 0.1;
+          context.translate(element.x1 + (element.x2 - element.x1) / 2, element.y1 + (element.y2 - element.y1) / 2);
+          context.scale(scale, scale);
+          context.translate(-(element.x1 + (element.x2 - element.x1) / 2), -(element.y1 + (element.y2 - element.y1) / 2));
+          break;
+        case "wave":
+          const waveOffset = Math.sin(progress * Math.PI * 2) * 10;
+          context.translate(waveOffset, 0);
+          break;
+      }
+
+      switch (element.type) {
+        case "line":
+        case "rectangle":
+          roughCanvas.draw(element.roughElement);
+          break;
+        case "pencil":
+          const stroke = getSvgPathFromStroke(
+            getStroke(element.points, {
+              size: element.strokeWidth || 2,
+              thinning: 0.5,
+              smoothing: 0.5,
+              streamline: 0.5,
+            })
+          );
+          context.fillStyle = element.strokeColor || "#000000";
+          context.fill(new Path2D(stroke));
+          break;
+        default:
+          throw new Error(`Type not recognised: ${element.type}`);
+      }
+
+      context.restore();
+    } else {
+      // Draw without animation
+      switch (element.type) {
+        case "line":
+        case "rectangle":
+          roughCanvas.draw(element.roughElement);
+          break;
+        case "pencil":
+          const stroke = getSvgPathFromStroke(
+            getStroke(element.points, {
+              size: element.strokeWidth || 2,
+              thinning: 0.5,
+              smoothing: 0.5,
+              streamline: 0.5,
+            })
+          );
+          context.fillStyle = element.strokeColor || "#000000";
+          context.fill(new Path2D(stroke));
+          break;
+        default:
+          throw new Error(`Type not recognised: ${element.type}`);
+      }
+    }
+  };
+
+  useEffect(() => {
+    const handleExtensionError = (error) => {
+      // Ignore extension-related errors
+      if (error.message.includes('Receiving end does not exist')) {
+        return;
+      }
+      console.error('Extension error:', error);
+    };
+
+    // Add error handler for extension communication
+    window.addEventListener('error', handleExtensionError);
+    window.addEventListener('unhandledrejection', (event) => {
+      if (event.reason?.message?.includes('Receiving end does not exist')) {
+        event.preventDefault();
+        return;
+      }
+    });
+
+    return () => {
+      window.removeEventListener('error', handleExtensionError);
+    };
+  }, []);
+
+  // Add network status listener
+  useEffect(() => {
+    const handleOnline = () => {
+      console.log('Network connection restored');
+    };
+
+    const handleOffline = () => {
+      console.log('Network connection lost');
+      showCanvasAlert("Network connection lost. Please check your internet connection.");
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
   return (
     <div
-      className="w-screen h-screen overflow-hidden font-[Comic Sans MS]"
+      className="w-screen h-screen overflow-hidden font-comic-sans"
       style={{ background: pageColor || "linear-gradient(to-br, #fefcbf, #fed7aa, #f3e8ff)" }}
     >
       <div
         className="fixed z-10 flex items-center justify-between p-4 bg-yellow-200 shadow-lg top-4 left-4 rounded-xl"
-        style={{
-          right: showVideoSection ? `${window.innerWidth * 0.25 + 16}px` : "1rem",
-        }}
+        style={{ right: showVideoSection ? `${window.innerWidth * 0.25 + 16}px` : "1rem" }}
       >
         <div className="flex space-x-2">
           <button
@@ -974,13 +1142,10 @@ const FirstBoard = () => {
             } hover:bg-green-200 transition`}
           >
             <svg className="inline-block w-6 h-6 mr-1" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793z" />
-              <path d="M11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+              <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
             </svg>
             Draw
           </button>
-
-          
           <button
             onClick={() => setTool("line")}
             className={`px-4 py-2 rounded-lg text-purple-800 font-bold ${
@@ -992,9 +1157,6 @@ const FirstBoard = () => {
             </svg>
             Line
           </button>
-
-
-          
           <button
             onClick={() => setTool("rectangle")}
             className={`px-4 py-2 rounded-lg text-purple-800 font-bold ${
@@ -1025,7 +1187,6 @@ const FirstBoard = () => {
             </svg>
             Words
           </button>
-
           <div className="relative">
             <button
               onClick={() => {
@@ -1066,7 +1227,6 @@ const FirstBoard = () => {
               </div>
             )}
           </div>
-
           <div className="relative">
             <button
               onClick={() => {
@@ -1112,7 +1272,6 @@ const FirstBoard = () => {
               </div>
             )}
           </div>
-
           <div className="relative">
             <button
               onClick={() => {
@@ -1194,7 +1353,6 @@ const FirstBoard = () => {
               </div>
             )}
           </div>
-
           <button
             onClick={() => setShowGrid(!showGrid)}
             className={`px-4 py-2 rounded-lg text-purple-800 font-bold ${
@@ -1206,7 +1364,6 @@ const FirstBoard = () => {
             </svg>
             Grid
           </button>
-
           <input
             type="color"
             value={pageColor || "#ffffff"}
@@ -1214,7 +1371,6 @@ const FirstBoard = () => {
             className="w-10 h-10 border-2 border-purple-500 rounded-lg cursor-pointer"
             title="Page Color"
           />
-
           <button
             onClick={() => setShowVideoSection(!showVideoSection)}
             className={`px-4 py-2 rounded-lg text-purple-800 font-bold ${
@@ -1230,8 +1386,19 @@ const FirstBoard = () => {
             </svg>
             Video
           </button>
+          <button
+            onClick={toggleAnimation}
+            className={`px-4 py-2 rounded-lg text-purple-800 font-bold ${
+              isAnimating ? "bg-purple-300" : "bg-purple-100"
+            } hover:bg-purple-200 transition`}
+          >
+            <svg className="inline-block w-6 h-6 mr-1" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M10 3.5a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-1 0V4a.5.5 0 0 1 .5-.5z"/>
+              <path d="M10.5 10V6a.5.5 0 0 0-1 0v4a.5.5 0 0 0 1 0zm-4 0a.5.5 0 0 0-1 0v4a.5.5 0 0 0 1 0v-4zm8 0a.5.5 0 0 0-1 0v4a.5.5 0 0 0 1 0v-4z"/>
+            </svg>
+            Animate
+          </button>
         </div>
-
         <div className="flex space-x-2">
           <button
             onClick={undo}
@@ -1260,9 +1427,6 @@ const FirstBoard = () => {
             </svg>
             Redo
           </button>
-
-
-          
           <button
             onClick={saveCanvasWithProcessedImage}
             className="px-4 py-2 font-bold text-purple-800 transition bg-green-100 rounded-lg hover:bg-green-200"
@@ -1276,9 +1440,6 @@ const FirstBoard = () => {
             </svg>
             Picture
           </button>
-
-
-          
           <button
             onClick={saveToDatabase}
             className="px-4 py-2 font-bold text-purple-800 transition bg-blue-100 rounded-lg hover:bg-blue-200"
@@ -1292,30 +1453,13 @@ const FirstBoard = () => {
             </svg>
             Save
           </button>
-          {/* <button
-            onClick={() => loadFromDatabase("67feafe97904e414cabecb3f")}
-            className="px-4 py-2 font-bold text-purple-800 transition bg-purple-100 rounded-lg hover:bg-purple-200"
-          >
-            <svg className="inline-block w-6 h-6 mr-1" fill="currentColor" viewBox="0 0 20 20">
-              <path
-                fillRule="evenodd"
-                d="M3 3a1 1 0 011-1h12a1 1 0 011 1v14a1 1 0 01-1 1H4a1 1 0 01-1-1V3zm10.293 4.293a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 01-1.414-1.414L14.586 11H7a1 1 0 110-2h7.586l-1.293-1.293a1 1 0 010-1.414z"
-                clipRule="evenodd"
-              />
-            </svg>
-            Load
-          </button> */}
         </div>
       </div>
 
       {showVideoSection && (
         <div
           className="fixed top-0 right-0 z-30 bg-white shadow-2xl"
-          style={{
-            width: `${window.innerWidth * 0.35}px`,
-            height: "120vh",
-            top: "2.5vh",
-          }}
+          style={{ width: `${window.innerWidth * 0.35}px`, height: "120vh", top: "2.5vh" }}
         >
           <div className="relative flex flex-col h-full p-4" onScroll={handleVideoSectionScroll}>
             <button
@@ -1330,7 +1474,6 @@ const FirstBoard = () => {
               </svg>
             </button>
             <h3 className="mb-4 text-2xl font-bold text-purple-800">Fun Videos for Kids!</h3>
-
             <div className="flex mb-6">
               <input
                 type="text"
@@ -1351,7 +1494,6 @@ const FirstBoard = () => {
                 Search
               </button>
             </div>
-
             {error && <p className="mb-4 text-lg text-red-600">{error}</p>}
             {selectedVideoId ? (
               <div className="flex-1">
@@ -1385,7 +1527,7 @@ const FirstBoard = () => {
                         className="flex flex-col p-4 transition bg-gray-100 rounded-lg cursor-pointer hover:bg-gray-200"
                         onClick={() => setSelectedVideoId(video.id)}
                       >
-                        <div className="relative mb-3" style={{ paddingBottom: "75%" }}>
+                        <div className="relative mb-3 mb- personally" style={{ paddingBottom: "75%" }}>
                           <img
                             src={video.thumbnail}
                             alt={video.title}
@@ -1452,11 +1594,57 @@ const FirstBoard = () => {
         }}
       />
 
+      {/* Animation Dashboard */}
+      {showAnimationDashboard && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 animate-fade-in">
+          <div className="w-full max-w-2xl p-6 bg-white shadow-2xl rounded-xl animate-slide-up">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-2xl font-bold text-purple-800">Pick an Animation Image!</h3>
+              <button
+                onClick={() => setShowAnimationDashboard(false)}
+                className="text-purple-800 hover:text-purple-600"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <p className="mb-4 text-lg text-purple-600">Click on an image to add it to the canvas in a random position!</p>
+            <div className="grid grid-cols-4 gap-4">
+              {animationImages.map((image) => (
+                <div key={image.id} className="space-y-2">
+                  <button
+                    onClick={() => handleImageSelect(image.src, "rotate")}
+                    className="relative w-full group"
+                  >
+                    <img
+                      src={image.src}
+                      alt={image.alt}
+                      className="object-cover w-24 h-24 transition transform rounded-lg group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 transition bg-black bg-opacity-0 rounded-lg group-hover:bg-opacity-20"></div>
+                  </button>
+                  <div className="flex justify-center space-x-2">
+                    {elementAnimationTypes.map((type) => (
+                      <button
+                        key={type.value}
+                        onClick={() => handleImageSelect(image.src, type.value)}
+                        className="px-2 py-1 text-sm text-purple-800 bg-purple-100 rounded hover:bg-purple-200"
+                      >
+                        {type.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div
         className="absolute bottom-10"
-        style={{
-          right: showVideoSection ? `${window.innerWidth * 0.25 + 40}px` : "2.5rem",
-        }}
+        style={{ right: showVideoSection ? `${window.innerWidth * 0.25 + 40}px` : "2.5rem" }}
       >
         <button
           className="flex items-center justify-center w-16 h-16 transition rounded-full shadow-xl bg-gradient-to-r from-purple-400 to-pink-400 animate-bounce hover:scale-110"
@@ -1466,7 +1654,7 @@ const FirstBoard = () => {
           <span className="text-2xl text-white">✨</span>
         </button>
         {magicMenuOpen && (
-          <div className="absolute right-0 p-3 bg-white border-2 border-purple-500 rounded-lg shadow-xl bottom-20">
+          <div className="absolute right-0 p-3 bg-white border-2 border-purple-500 rounded-lg shadow-xl bottom-20 animate-slide-up">
             <button
               className="block w-full px-4 py-2 font-bold text-purple-800 rounded-md hover:bg-yellow-100"
               onClick={() => handleMagicOption("Make Image")}
@@ -1499,11 +1687,7 @@ const FirstBoard = () => {
         <div className="fixed z-50 flex flex-col items-center bottom-28 right-10">
           <div className="relative flex items-center justify-center w-20 h-20">
             <div className="absolute w-20 h-20 bg-red-200 rounded-full opacity-75 animate-ping"></div>
-            <svg
-              className="w-12 h-12 text-red-600"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
+            <svg className="w-12 h-12 text-red-600" fill="currentColor" viewBox="0 0 20 20">
               <path
                 fillRule="evenodd"
                 d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm-1.5 4a4.5 4.5 0 019 0V8c0 2.485 2.015 4.5 4.5 4.5h.5a1 1 0 110 2h-.5A6.5 6.5 0 013 8V8a4.5 4.5 0 01-1.5-8z"
