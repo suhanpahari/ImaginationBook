@@ -11,7 +11,7 @@ const bcrypt = require('bcrypt');
 dotenv.config();
 
 const app = express() ; 
-const port = process.env.PORT || 3000;
+const port = process.env.PORT;
 
 app.use(express.json())
 app.use(express.urlencoded({extended: true}))
@@ -216,6 +216,12 @@ app.get("/api/draft" ,async (req,res) =>
   }
 })
 
+
+
+if(!port)
+  {
+    console.log("Port not found") ; 
+  }
 app.listen(port, (req,res) =>
 {
     console.log(`Server is running on port ${port}`)
