@@ -25,7 +25,7 @@ app.use(cors({ origin: "https://imaginationbook-5d4r.onrender.com" }));
 
 
 
-mongoose.connect("mongodb+srv://prantik:cgx97.-5mqNv9uW@cluster0.eyubvjw.mongodb.net/ImaginationBook")
+mongoose.connect(process.env.MONGODB_URI)
 .then(() => console.log("Connected to MongoDB"))
 .catch((err) => console.log(err))
 
