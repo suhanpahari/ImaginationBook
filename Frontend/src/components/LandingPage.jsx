@@ -566,17 +566,24 @@ export default function LandingPage() {
             Sign Up
           </button>
         </div>
-        <span
-          onClick={() => navigate('/')}
-          className="relative px-10 py-4 mt-16 overflow-hidden text-xl font-bold text-white transition-all transform rounded-full shadow-lg bg-gradient-to-r from-green-500 to-teal-500 hover:scale-105 hover:shadow-xl group"
-          aria-label="Start exploring ImaginationBook"
-        >
-          <span className="relative z-10 flex items-center gap-2">
-            <Home className="w-6 h-6" />
-            "Ready to explore? <b>Log in</b> or <b>sign up</b>to begin the adventure!"
+      
+                  <span
+            onClick={() => navigate('/')}
+            className="relative px-6 py-4 mt-16 overflow-hidden text-base sm:text-xl font-bold text-white transition-all transform rounded-full shadow-lg bg-gradient-to-r from-green-500 to-teal-500 hover:scale-105 hover:shadow-xl group text-center"
+            aria-label="Start exploring ImaginationBook"
+          >
+            <span className="relative z-10 flex flex-wrap justify-center items-center gap-2 text-center leading-snug">
+              <Home className="w-6 h-6" />
+              <span>
+                Ready to explore? <b>Log in</b> or <b>sign up</b> to begin the adventure!
+              </span>
             </span>
-          <span className="absolute inset-0 transition-transform duration-500 origin-left transform scale-x-0 bg-white opacity-25 group-hover:scale-x-100" />
-        </span>
+
+            <span className="absolute inset-0 transition-transform duration-500 origin-left transform scale-x-0 bg-white opacity-25 group-hover:scale-x-100" />
+          </span>
+
+
+
         <div className="grid max-w-4xl grid-cols-1 gap-8 mt-16 md:grid-cols-3">
           <FeatureCard
             icon={
