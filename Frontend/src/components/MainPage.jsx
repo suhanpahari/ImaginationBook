@@ -16,6 +16,7 @@ export default function ImaginationBookHome() {
   const [draftItems, setDraftItems] = useState([]);
   const [showAvatarModal, setShowAvatarModal] = useState(false);
   const [selectedAvatar, setSelectedAvatar] = useState('');
+  const [error, setError] = useState('');
 
   // let finalEmail = null ;
   // let finalPassword = null ;
@@ -66,21 +67,37 @@ const featured =
   }, []);
 
   // Sample draft data
-  useEffect(() => {
-    const fetchDrafts = async () => {
-      try {
-        const res = await fetch(`https://imaginationbook.onrender.com/api/draft?email=${finalEmail}`);
-        const data = await res.json();
-        console.log("Fetched drafts:", data); // Confirm data is non-empty
-        setDraftItems(data);
-      } catch (err) {
-        console.error('Error fetching drafts:', err);
+  const fetchDrafts = async (retryCount = 0) => {
+    try {
+      const response = await fetch(`https://imaginationbook.onrender.com/api/drawings/${email}`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-    };
-  
-    if (finalEmail) fetchDrafts(); // use finalEmail, not just email
-  }, [finalEmail]);
-  
+      const data = await response.json();
+      setDraftItems(data);
+      setError(null); // Clear any previous errors
+    } catch (error) {
+      console.error("Error fetching drafts:", error);
+      if (retryCount < 3) {
+        // Retry after 1 second
+        setTimeout(() => fetchDrafts(retryCount + 1), 1000);
+      } else {
+        setError("Failed to load drafts. Please check your internet connection and try again.");
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (email) {
+      fetchDrafts();
+    }
+  }, [email]);
+
+  // Add a retry button
+  const handleRetry = () => {
+    setError(null);
+    fetchDrafts();
+  };
 
   // Predefined avatar options
   const avatarOptions = [
@@ -432,8 +449,11 @@ const featured =
             </h2>
             {draftItems.length > 0 ? (
               <div className="space-y-4">
-                {draftItems.map(draft => (
-                  <div key={draft._id} className="flex items-center justify-between p-4 transition-all transform border border-gray-200 cursor-pointer bg-gray-50 rounded-2xl hover:bg-gray-100 hover:scale-102 hover:shadow-md">
+                {draftItems.map((draft, index) => (
+                  <div
+                    key={`${draft.id || index}-${draft.name || 'draft'}`}
+                    className="flex items-center justify-between p-4 transition-all transform border border-gray-200 cursor-pointer bg-gray-50 rounded-2xl hover:bg-gray-100 hover:scale-102 hover:shadow-md"
+                  >
                     <div className="flex items-center">
                       <div className={`p-4 rounded-full mr-4 shadow-inner ${
                         draft.canvasType === 'story' ? 'bg-gradient-to-br from-blue-500 to-blue-400' : 
@@ -455,16 +475,13 @@ const featured =
                       <button
                         className="flex items-center px-6 py-2 text-sm text-white transition-all transform rounded-full shadow-md bg-gradient-to-r from-purple-500 to-pink-500 hover:shadow-lg hover:scale-105"
                         onClick={() => {
-                          if (draft.board == "Board1") 
-                          {
+                          if (draft.board === "Board1") {
                             navigate(`/draft1/${draft._id}`);
                           } 
-                          else if(draft.board == "Board2") 
-                          {
+                          else if(draft.board === "Board2") {
                             navigate(`/draft2/${draft._id}`);
                           }
-                          else
-                          {
+                          else {
                             navigate(`/draft3/${draft._id}`);
                           }
                         }}
@@ -491,6 +508,17 @@ const featured =
                 </button>
               </div>
             )}
+            {error && (
+              <div className="p-4 mt-4 text-center">
+                <p className="text-red-600">{error}</p>
+                <button
+                  onClick={handleRetry}
+                  className="px-4 py-2 mt-2 text-white transition-colors bg-blue-500 rounded hover:bg-blue-600"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -507,17 +535,14 @@ const featured =
               </button>
             </div>
             
-
-
-            
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-              {featured.map(i => (
-                <div key={i} className="overflow-hidden transition-all transform bg-white border border-blue-100 shadow-lg cursor-pointer rounded-2xl hover:shadow-xl hover:scale-105">
+              {featured.map((item, index) => (
+                <div key={`featured-${index}`} className="overflow-hidden transition-all transform bg-white border border-blue-100 shadow-lg cursor-pointer rounded-2xl hover:shadow-xl hover:scale-105">
                   <div className="relative overflow-hidden h-36 bg-gradient-to-br from-blue-100 to-purple-100">
                     <div className="absolute inset-0 flex items-center justify-center">
                       <div className="w-full h-full bg-white bg-opacity-10" 
                       style={{
-                        backgroundImage: `url(${i.image})`,
+                        backgroundImage: `url(${item.image})`,
                         backgroundSize: 'cover',
                         backgroundPosition: 'center',
                       }}
@@ -528,8 +553,8 @@ const featured =
                     </div>
                   </div>
                   <div className="p-4">
-                    <h3 className="font-bold text-gray-800 truncate">{i.name}</h3>
-                    <p className="text-sm text-purple-600">{i.desc}</p>
+                    <h3 className="font-bold text-gray-800 truncate">{item.name}</h3>
+                    <p className="text-sm text-purple-600">{item.desc}</p>
                   </div>
                 </div>
               ))}

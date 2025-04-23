@@ -6,6 +6,8 @@ import axios from "axios";
 import YouTube from "react-youtube";
 import { useSelector } from "react-redux";
 import { useNavigate, useParams } from "react-router-dom";
+// import football from "../assets/Football.";  
+
 
 const generator = rough.generator();
 
@@ -37,7 +39,7 @@ const fillOptions = [
 
 // Predefined images for the animation dashboard
 const animationImages = [
-  { id: 1, src: "https://images.pexels.com/photos/3532557/pexels-photo-3532557.jpeg", alt: "Star" },
+  { id: 1, src: "https://acegif.com/wp-content/uploads/gif/lion-roar-44.gif", alt: "Star" },
   { id: 2, src: "https://images.pexels.com/photos/3532552/pexels-photo-3532552.jpeg", alt: "Heart" },
   { id: 3, src: "https://images.pexels.com/photos/3532544/pexels-photo-3532544.jpeg", alt: "Cloud" },
   { id: 4, src: "https://images.pexels.com/photos/3532548/pexels-photo-3532548.jpeg", alt: "Tree" },

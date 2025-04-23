@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { RoughCanvas } from "roughjs/bin/canvas";
 import { useSelector } from "react-redux";
 import { Search, X, Youtube } from "lucide-react";
@@ -23,7 +23,7 @@ import {
   Palette,
   Eraser,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
 
 // Cartoon figures data
@@ -85,6 +85,7 @@ export default function InfiniteCanvas() {
   const animationFrameRef = useRef(null);
   const [isAnimating, setIsAnimating] = useState(false);
   const [showAnimationDashboard, setShowAnimationDashboard] = useState(false);
+  const { id } = useParams();
 
   const email = useSelector((state) => state.user.userEmail);
   const password = useSelector((state) => state.user.userPassword);
@@ -104,6 +105,35 @@ export default function InfiniteCanvas() {
     navigate("/");
   }
 
+
+  
+  // const loadFromDatabase = useCallback(async () => {
+  //   if (!id || !email) return;
+  //   try {
+  //     const response = await fetch(`https://imaginationbook.onrender.com/api/drawings/${id}/${finalEmail}`);
+  //     const result = await response.json();
+  //     if (response.ok) {
+  //       setElements(result.elements || []);
+  //       setDrawingId(result.id);
+  //     } else {
+  //       throw new Error(result.error || "Failed to load drawing");
+  //     }
+  //   } catch (error) {
+  //     console.error("Error loading drawing:", error);
+  //     alert("Oops! Couldn't load the drawing.");
+  //   }
+  // }, [id, email, finalEmail, setElements]);
+
+  // // Load drawing on mount if ID is provided
+  // useEffect(() => {
+  //   if (id && email) {
+  //     loadFromDatabase();
+  //   }
+  // }, [id, email]);
+
+
+
+  
   const showCanvasAlert = (message, duration = 3000) => {
     setAlertMessage(message);
     setTimeout(() => setAlertMessage(null), duration);
