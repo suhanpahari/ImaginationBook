@@ -73,6 +73,7 @@ export default function InfiniteCanvas() {
   // *********************************** API KEYS ***********************************
   const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY 
   const GROQ_API_URL = import.meta.env.VITE_GROQ_API_URL
+  const BASE_URL = import.meta.env.VITE_BASE_URL
 
   // if (!email && !password) {
   //   navigate("/");
@@ -399,10 +400,10 @@ export default function InfiniteCanvas() {
         name: `KidsDrawing-${Date.now()}`,
         board: "Board1",
       };
-      let url = `https://imaginationbook.onrender.com/api/drawings/${finalEmail}`;
+      let url = `${BASE_URL}/api/drawings/${finalEmail}`;
       let method = "POST";
       if (drawingId) {
-        url = `https://imaginationbook.onrender.com/api/drawings/${drawingId}/${finalEmail}`;
+        url = `${BASE_URL}/api/drawings/${drawingId}/${finalEmail}`;
         method = "PUT";
       }
       const response = await fetch(url, {

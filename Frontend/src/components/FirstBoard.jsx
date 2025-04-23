@@ -39,10 +39,11 @@ const fillOptions = [
 
 // Predefined images for the animation dashboard
 const animationImages = [
-  { id: 1, src: "https://acegif.com/wp-content/uploads/gif/lion-roar-44.gif", alt: "Star" },
-  { id: 2, src: "https://images.pexels.com/photos/3532552/pexels-photo-3532552.jpeg", alt: "Heart" },
-  { id: 3, src: "https://images.pexels.com/photos/3532544/pexels-photo-3532544.jpeg", alt: "Cloud" },
-  { id: 4, src: "https://images.pexels.com/photos/3532548/pexels-photo-3532548.jpeg", alt: "Tree" },
+  { id: 1, src: "https://www.pngarts.com/files/2/Soccer-Ball-PNG-Background-Image.png", alt: "Star" },
+  { id: 2, src: "https://th.bing.com/th/id/R.cd72868df85f071f89a38bf46e5b7bce?rik=mE8vjKvMme3d7A&riu=http%3a%2f%2fpluspng.com%2fimg-png%2fbubble-png-hd-bubble-white-background-pictures-1386.jpg&ehk=%2fhM0KIBw05w9Z0mmmtRg6mxYRaySigJymTDg5CCqrXw%3d&risl=&pid=ImgRaw&r=0", alt: "Heart" },
+  { id: 3, src: "https://th.bing.com/th/id/OIP.OGOZphimHSHq45r72eEamQHaHR?pid=ImgDet&w=474&h=465&rs=1", alt: "Cloud" },
+  { id: 4, src: "https://static.vecteezy.com/system/resources/previews/023/550/814/original/blue-glowing-lights-effects-isolated-on-transparent-background-solar-flare-with-beams-and-spotlight-glow-effect-starburst-with-sparkles-png.png", alt: "Tree" },
+  {id:5, src:"https://static.vecteezy.com/system/resources/previews/025/039/250/original/blue-light-burst-free-png.png" , alt: "Tree" },
 ];
 
 // Add animation types for elements
@@ -272,6 +273,7 @@ const FirstBoard = () => {
 
   const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY;
   const GROQ_API_URL = import.meta.env.VITE_GROQ_API_URL;
+  const BASE_URL = import.meta.env.VITE_BASE_URL;
 
   const { id } = useParams();
 
@@ -282,7 +284,7 @@ const FirstBoard = () => {
   // console.log(email);
   console.log(finalEmail);
 
-  
+  console.log(BASE_URL);
 
   // const loadFromDatabase = useCallback(async () => {
   //   if (!id || !email) return;
@@ -754,6 +756,7 @@ const FirstBoard = () => {
       const response = await fetch(url, {
         method: "POST",
         body: formData,
+        credentials: "include", // important!
       });
 
       const data = await response.json();
@@ -771,7 +774,7 @@ const FirstBoard = () => {
               width: img.width / 2,
               height: img.height / 2,
               isDragging: false,
-              animationType: "rotate",
+              animationType: "none", // Changed from "rotate" to "none"
               startTime: Date.now(),
               duration: 3000
             }
@@ -786,6 +789,9 @@ const FirstBoard = () => {
       showCanvasAlert("Network error while processing image!");
     }
   };
+
+
+
 
   const saveCanvasWithProcessedImage = () => {
     const canvas = canvasRef.current;
@@ -823,10 +829,10 @@ const FirstBoard = () => {
         name: `KidsDrawing-${Date.now()}`,
         board: "Board1",
       };
-      let url = `https://imaginationbook.onrender.com/api/drawings/${finalEmail}`;
+      let url = `${BASE_URL}/api/drawings/${finalEmail}`;
       let method = "POST";
       if (drawingId) {
-        url = `https://imaginationbook.onrender.com/api/drawings/${drawingId}/${finalEmail}`;
+        url = `${BASE_URL}/api/drawings/${drawingId}/${finalEmail}`;
         method = "PUT";
       }
       const response = await fetch(url, {
@@ -1647,8 +1653,8 @@ const FirstBoard = () => {
                 </svg>
               </button>
             </div>
-            <p className="mb-4 text-lg text-purple-600">Click on an image to add it to the canvas in a random position!</p>
-            <div className="grid grid-cols-4 gap-4">
+            <p className="mb-2 text-lg text-purple-600">Click on an image to add it to the canvas in a random position!</p>
+            <div className="grid grid-cols-2 gap-4">
               {animationImages.map((image) => (
                 <div key={image.id} className="space-y-2">
                   <button
