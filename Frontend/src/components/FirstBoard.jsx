@@ -1,11 +1,11 @@
 // FirstBoard.jsx
-import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState, useCallback } from "react";
 import rough from "roughjs/bundled/rough.esm";
 import getStroke from "perfect-freehand";
 import axios from "axios";
 import YouTube from "react-youtube";
 import { useSelector } from "react-redux";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 const generator = rough.generator();
 
@@ -271,17 +271,53 @@ const FirstBoard = () => {
   const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY;
   const GROQ_API_URL = import.meta.env.VITE_GROQ_API_URL;
 
+  const { id } = useParams();
+
   let finalEmail = localStorage.getItem("email") || email;
   let finalPassword = localStorage.getItem("password") || password;
 
-  if (!finalEmail && !finalPassword) {
-    navigate("/");
-  }
+  console.log(id);
+  // console.log(email);
+  console.log(finalEmail);
 
+  
+
+  // const loadFromDatabase = useCallback(async () => {
+  //   if (!id || !email) return;
+  //   try {
+  //     const response = await fetch(`https://imaginationbook.onrender.com/api/drawings/${id}/${finalEmail}`);
+  //     const result = await response.json();
+  //     if (response.ok) {
+  //       setElements(result.elements || []);
+  //       setDrawingId(result.id);
+  //     } else {
+  //       throw new Error(result.error || "Failed to load drawing");
+  //     }
+  //   } catch (error) {
+  //     console.error("Error loading drawing:", error);
+  //     alert("Oops! Couldn't load the drawing.");
+  //   }
+  // }, [id, email, finalEmail, setElements]);
+
+  // // Load drawing on mount if ID is provided
+  // useEffect(() => {
+  //   if (id && email) {
+  //     loadFromDatabase();
+  //   }
+  // }, [id, email, loadFromDatabase]);
+
+
+
+  
   const showCanvasAlert = (message, duration = 3000) => {
     setAlertMessage(message);
     setTimeout(() => setAlertMessage(null), duration);
   };
+
+
+
+
+  
 
   const fetchVideos = async (query = "Drawing video") => {
     try {
@@ -1116,9 +1152,9 @@ const FirstBoard = () => {
       style={{ background: pageColor || "linear-gradient(to-br, #fefcbf, #fed7aa, #f3e8ff)" }}
     >
       <div
-        className="fixed z-10 flex items-center justify-between p-4 bg-yellow-200 shadow-lg top-4 left-4 rounded-xl"
+        className="fixed z-10 flex items-center justify-between h-20 p-4 overflow-y-auto bg-yellow-300 shadow-xl top-4 left-4 rounded-xl scrollbar-thin scrollbar-thumb-gray-500 scrollbar-track-gray-200"
         style={{ right: showVideoSection ? `${window.innerWidth * 0.25 + 16}px` : "1rem" }}
-      >
+              >
         <div className="flex space-x-2">
           <button
             onClick={() => setTool("selection")}
