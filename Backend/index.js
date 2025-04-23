@@ -12,15 +12,16 @@ dotenv.config();
 
 const app = express() ; 
 const port = process.env.PORT;
-const ngrok = process.env.NGROK_ENDPOINT ;
+// const ngrok = process.env.NGROK_ENDPOINT ;
 
-app.use(express.json())
-app.use(express.urlencoded({extended: true}))
 const allowedOrigins = [
+  'http://localhost:5000',
   'http://localhost:5001',
   'https://imaginationbook-5d4r.onrender.com',
   process.env.NGROK_ENDPOINT?.trim(), // safely add ngrok only if defined and clean
 ];
+
+// console.log(process.env.NGROK_ENDPOINT)
 
 app.use(cors({
   origin: function (origin, callback) {
@@ -35,6 +36,9 @@ app.use(cors({
   },
   credentials: true,
 }));
+
+app.use(express.json())
+app.use(express.urlencoded({extended: true}))
 
 // app.use(cors({
 //   origin: 'https://9461-35-240-135-136.ngrok-free.app',
