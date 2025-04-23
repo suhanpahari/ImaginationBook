@@ -5,6 +5,8 @@ const cors = require('cors')
 const DraftCanvas = require('./model/draftCanvas')
 const nodemailer = require('nodemailer')
 const dotenv = require('dotenv')
+const bcrypt = require('bcrypt');
+
 
 dotenv.config();
 
@@ -31,8 +33,8 @@ mongoose.connect("mongodb+srv://prantik:cgx97.-5mqNv9uW@cluster0.eyubvjw.mongodb
 
 app.post("/signup", async (req, res) => {
   const { name, email, password, confirmPassword } = req.body;
-  console.log(name, email, password, confirmPassword);
-  console.log("Signup page");
+  // console.log(name, email, password, confirmPassword);
+  // console.log("Signup page");
 
   if (password !== confirmPassword) {
       return res.status(400).json({ error: "Password and Confirm Password do not match" });
@@ -90,7 +92,9 @@ app.post("/signup", async (req, res) => {
       const result = await transporter.sendMail(mailOptions);
       // console.log(result) ;
        // Create and save new user
-       const user = new User({ name, email, password });
+       const saltRounds = 10;
+       const hashedPassword = await bcrypt.hash(password, saltRounds);
+       const user = new User({ name, email, password : hashedPassword });
        await user.save();
 
       return res.status(200).json({ message: 'Signup successful, email sent' });
@@ -117,15 +121,25 @@ app.post('/login' , async (req,res)=>
     }
     else
     {
-        if(user.password !== password)
-        {
-            return res.status(400).json({error : "Invalid password"})
-        }
-        else
-        {
-            return res.status(200).json({message : "Login successful"})
-        }
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch) 
+      {
+        return res.status(400).json({ error: "Invalid password" });
+      } 
+      else 
+      {
+        return res.status(200).json({ message: "Login successful" });
+      }
     }
+        // if(user.password !== password)
+        // {
+        //     return res.status(400).json({error : "Invalid password"})
+        // }
+        // else
+        // {
+        //     return res.status(200).json({message : "Login successful"})
+        // }
+    //}
     
 })
 
