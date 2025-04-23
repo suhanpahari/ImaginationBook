@@ -7,7 +7,13 @@ import { useNavigate } from "react-router-dom"
 import axios from "axios"
 import YouTube from "react-youtube"
 import { Pencil, Square, Circle, Move, Trash2, Download, ZoomIn, ZoomOut, Undo, Redo, ImageIcon, Minus, Plus, Type, Palette, Eraser, Search, X, Youtube } from 'lucide-react'
-
+import cartoon1 from '../assets/cartoon-1.png';
+import cartoon2 from '../assets/cartoon-2.jpg';
+import cartoon4 from '../assets/cartoon-4.jpg';
+import cartoon5 from '../assets/cartoon-5.jpg';
+import magic1 from '../assets/magic-1.png';
+import magic2 from '../assets/magic-2.png';
+import magic3 from '../assets/magic-3.png';
 // Cartoon figures data
 const cartoonFigures = [
   {
@@ -1038,23 +1044,18 @@ export default function InfiniteCanvas() {
 
   // Add animation images
   const animatedImages = [
-    {
-      url: "https://images.pexels.com/photos/3532552/pexels-photo-3532552.jpeg",
-      animation: "rotate"
-    },
-    {
-      url: "https://images.pexels.com/photos/3532557/pexels-photo-3532557.jpeg",
-      animation: "bounce"
-    },
-    {
-      url: "https://images.pexels.com/photos/3532544/pexels-photo-3532544.jpeg",
-      animation: "pulse"
-    },
-    {
-      url: "https://images.pexels.com/photos/3532548/pexels-photo-3532548.jpeg",
-      animation: "float"
-    }
+    { animation: "bounce", src: magic3 },
+    { animation: "bounce", src: "https://th.bing.com/th/id/R.cd72868df85f071f89a38bf46e5b7bce?rik=mE8vjKvMme3d7A&riu=http%3a%2f%2fpluspng.com%2fimg-png%2fbubble-png-hd-bubble-white-background-pictures-1386.jpg&ehk=%2fhM0KIBw05w9Z0mmmtRg6mxYRaySigJymTDg5CCqrXw%3d&risl=&pid=ImgRaw&r=0" },
+    { animation: "pulse", src: "https://th.bing.com/th/id/OIP.OGOZphimHSHq45r72eEamQHaHR?pid=ImgDet&w=474&h=465&rs=1"},
+    { animation: "pulse", src: "https://static.vecteezy.com/system/resources/previews/023/550/814/original/blue-glowing-lights-effects-isolated-on-transparent-background-solar-flare-with-beams-and-spotlight-glow-effect-starburst-with-sparkles-png.png"},
+    { animation: "float", src: magic2 },
+    { animation: "bounce", src: magic1 },
+    { animation: "float", src: cartoon4 },
+    { animation: "bounce", src: cartoon1 },
+    { animation: "float", src: cartoon2 },
+    { animation: "float", src: cartoon5 },
   ];
+
 
   // Add animation function
   const addAnimation = (index) => {
@@ -1064,7 +1065,7 @@ export default function InfiniteCanvas() {
     const imageData = animatedImages[index];
     const image = new Image();
     image.crossOrigin = "anonymous";
-    image.src = imageData.url;
+    image.src = imageData.src;
     
     image.onload = () => {
       const aspectRatio = image.width / image.height;
@@ -1609,7 +1610,7 @@ export default function InfiniteCanvas() {
                 </div>
               </div>
               
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
                 {animatedImages.map((img, i) => (
                   <div
                     key={i}
@@ -1617,7 +1618,7 @@ export default function InfiniteCanvas() {
                     className="relative overflow-hidden transition-transform transform rounded-lg cursor-pointer aspect-square hover:scale-105"
                   >
                     <img 
-                      src={img.url} 
+                      src={img.src} 
                       alt={`Animation ${i + 1}`}
                       className="object-cover w-full h-full"
                     />

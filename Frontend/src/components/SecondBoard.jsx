@@ -5,6 +5,13 @@ import { RoughCanvas } from "roughjs/bin/canvas";
 import { useSelector } from "react-redux";
 import { Search, X, Youtube } from "lucide-react";
 import YouTube from "react-youtube";
+import cartoon1 from '../assets/cartoon-1.png';
+import cartoon2 from '../assets/cartoon-2.jpg';
+import cartoon4 from '../assets/cartoon-4.jpg';
+import cartoon5 from '../assets/cartoon-5.jpg';
+import magic1 from '../assets/magic-1.png';
+import magic2 from '../assets/magic-2.png';
+import magic3 from '../assets/magic-3.png';
 import {
   Pencil,
   Square,
@@ -194,22 +201,16 @@ export default function InfiniteCanvas() {
 
   // Add animation images
   const animatedImages = [
-    {
-      url: "https://images.pexels.com/photos/3532552/pexels-photo-3532552.jpeg",
-      animation: "rotate"
-    },
-    {
-      url: "https://images.pexels.com/photos/3532557/pexels-photo-3532557.jpeg",
-      animation: "bounce"
-    },
-    {
-      url: "https://images.pexels.com/photos/3532544/pexels-photo-3532544.jpeg",
-      animation: "pulse"
-    },
-    {
-      url: "https://images.pexels.com/photos/3532548/pexels-photo-3532548.jpeg",
-      animation: "float"
-    }
+    { animation: "bounce", src: magic3 },
+    { animation: "bounce", src: "https://th.bing.com/th/id/R.cd72868df85f071f89a38bf46e5b7bce?rik=mE8vjKvMme3d7A&riu=http%3a%2f%2fpluspng.com%2fimg-png%2fbubble-png-hd-bubble-white-background-pictures-1386.jpg&ehk=%2fhM0KIBw05w9Z0mmmtRg6mxYRaySigJymTDg5CCqrXw%3d&risl=&pid=ImgRaw&r=0" },
+    { animation: "pulse", src: "https://th.bing.com/th/id/OIP.OGOZphimHSHq45r72eEamQHaHR?pid=ImgDet&w=474&h=465&rs=1"},
+    { animation: "pulse", src: "https://static.vecteezy.com/system/resources/previews/023/550/814/original/blue-glowing-lights-effects-isolated-on-transparent-background-solar-flare-with-beams-and-spotlight-glow-effect-starburst-with-sparkles-png.png"},
+    { animation: "float", src: magic2 },
+    { animation: "bounce", src: magic1 },
+    { animation: "float", src: cartoon4 },
+    { animation: "bounce", src: cartoon1 },
+    { animation: "float", src: cartoon2 },
+    { animation: "float", src: cartoon5 },
   ];
 
   // Update redrawCanvas function
@@ -365,7 +366,7 @@ export default function InfiniteCanvas() {
     const imageData = animatedImages[index];
     const image = new Image();
     image.crossOrigin = "anonymous";
-    image.src = imageData.url;
+    image.src = imageData.src;
     
     image.onload = () => {
       const aspectRatio = image.width / image.height;
@@ -387,6 +388,11 @@ export default function InfiniteCanvas() {
 
       setAnimations(prev => [...prev, newAnimation]);
       redrawCanvas();
+    };
+
+    image.onerror = () => {
+      console.error("Failed to load image:", imageData.src);
+      showCanvasAlert("Failed to load image. Please try again.");
     };
   };
 
@@ -1661,7 +1667,7 @@ export default function InfiniteCanvas() {
       {isAnimationOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
           <div 
-            className="bg-white rounded-lg p-6 w-full max-w-lg transform animate-[bounceIn_0.5s_ease-out]"
+            className="bg-white rounded-lg p-6 w-full max-w-lg max-h-[90vh] transform animate-[bounceIn_0.5s_ease-out]"
             style={{
               animation: `
                 bounceIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55),
@@ -1679,7 +1685,7 @@ export default function InfiniteCanvas() {
               </button>
             </div>
             
-            <div className="space-y-4">
+            <div className="space-y-4 overflow-y-auto max-h-[calc(90vh-120px)] pr-2">
               <div className="p-4 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg animate-[pulse_2s_infinite]">
                 <div className="text-lg font-medium text-center text-white">
                   ✨ Click an image to add animation ✨
@@ -1694,7 +1700,7 @@ export default function InfiniteCanvas() {
                     className="relative overflow-hidden transition-transform transform rounded-lg cursor-pointer aspect-square hover:scale-105"
                   >
                     <img 
-                      src={img.url} 
+                      src={img.src} 
                       alt={`Animation ${i + 1}`}
                       className="object-cover w-full h-full"
                     />
@@ -1712,7 +1718,7 @@ export default function InfiniteCanvas() {
       {/* Add animation dashboard */}
       {showAnimationDashboard && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 animate-fade-in">
-          <div className="w-full max-w-2xl p-6 bg-white shadow-2xl rounded-xl animate-slide-up">
+          <div className="w-full max-w-2xl max-h-[90vh] p-6 bg-white shadow-2xl rounded-xl animate-slide-up">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-2xl font-bold text-purple-800">Pick an Animation Image!</h3>
               <button
@@ -1725,7 +1731,7 @@ export default function InfiniteCanvas() {
               </button>
             </div>
             <p className="mb-4 text-lg text-purple-600">Click on an image to add it to the canvas in a random position!</p>
-            <div className="grid grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 gap-4 overflow-y-auto max-h-[calc(90vh-180px)] pr-2">
               {animationImages.map((image) => (
                 <div key={image.id} className="space-y-2">
                   <button

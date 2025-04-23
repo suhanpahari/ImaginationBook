@@ -6,6 +6,13 @@ import axios from "axios";
 import YouTube from "react-youtube";
 import { useSelector } from "react-redux";
 import { useNavigate, useParams } from "react-router-dom";
+import cartoon1 from '../assets/cartoon-1.png';
+import cartoon2 from '../assets/cartoon-2.jpg';
+import cartoon4 from '../assets/cartoon-4.jpg';
+import cartoon5 from '../assets/cartoon-5.jpg';
+import magic1 from '../assets/magic-1.png';
+import magic2 from '../assets/magic-2.png';
+import magic3 from '../assets/magic-3.png';
 // import football from "../assets/Football.";  
 
 
@@ -39,11 +46,19 @@ const fillOptions = [
 
 // Predefined images for the animation dashboard
 const animationImages = [
-  { id: 1, src: "https://www.pngarts.com/files/2/Soccer-Ball-PNG-Background-Image.png", alt: "Star" },
+  { id: 1, src: magic3, alt: "Star" },
   { id: 2, src: "https://th.bing.com/th/id/R.cd72868df85f071f89a38bf46e5b7bce?rik=mE8vjKvMme3d7A&riu=http%3a%2f%2fpluspng.com%2fimg-png%2fbubble-png-hd-bubble-white-background-pictures-1386.jpg&ehk=%2fhM0KIBw05w9Z0mmmtRg6mxYRaySigJymTDg5CCqrXw%3d&risl=&pid=ImgRaw&r=0", alt: "Heart" },
   { id: 3, src: "https://th.bing.com/th/id/OIP.OGOZphimHSHq45r72eEamQHaHR?pid=ImgDet&w=474&h=465&rs=1", alt: "Cloud" },
   { id: 4, src: "https://static.vecteezy.com/system/resources/previews/023/550/814/original/blue-glowing-lights-effects-isolated-on-transparent-background-solar-flare-with-beams-and-spotlight-glow-effect-starburst-with-sparkles-png.png", alt: "Tree" },
-  {id:5, src:"https://static.vecteezy.com/system/resources/previews/025/039/250/original/blue-light-burst-free-png.png" , alt: "Tree" },
+  {id:5,  src: magic2 , alt: "Tree" },
+  {id:6 , src :magic1 , alt :"magical"},
+  {id:7 , src : cartoon4 , alt :"magical"},
+  {id:8 , src :cartoon1 , alt :"magical"},
+  {id:9 , src :cartoon2 , alt :"magical"},
+  {id:10 , src :cartoon5 , alt :"magical"},
+  // {id:10 , src :cartoon3 , alt :"magical"},
+  
+
 ];
 
 // Add animation types for elements
@@ -727,6 +742,7 @@ const FirstBoard = () => {
   };
 
   const saveAsImage = async () => {
+    console.log("Starting saveAsImage function");
     const canvas = canvasRef.current;
     const tempCanvas = document.createElement("canvas");
     tempCanvas.width = canvas.width;
@@ -736,35 +752,95 @@ const FirstBoard = () => {
     tempContext.fillStyle = pageColor || "#ffffff";
     tempContext.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
     tempContext.translate(panOffset.x, panOffset.y);
+    
+    // Draw elements
     elements.forEach((element) => {
       drawElement(rough.canvas(tempCanvas), tempContext, element);
     });
-    processedImages.forEach((image) => {
-      tempContext.drawImage(image.img, image.x, image.y, image.width, image.height);
-    });
+
+    // Draw processed images with their current state
+    console.log("Processing images:", processedImages);
+    for (const image of processedImages) {
+      try {
+        console.log("Processing image:", image);
+        tempContext.save();
+        tempContext.globalAlpha = 0.7;
+        
+        // Apply the current animation state
+        const elapsed = Date.now() - image.startTime;
+        const progress = (elapsed % image.duration) / image.duration;
+        console.log("Animation progress:", progress);
+        
+        switch (image.animationType) {
+          case "rotate":
+            console.log("Applying rotate animation");
+            tempContext.translate(image.x + image.width / 2, image.y + image.height / 2);
+            tempContext.rotate(progress * Math.PI * 2);
+            tempContext.translate(-(image.x + image.width / 2), -(image.y + image.height / 2));
+            break;
+          case "bounce":
+            console.log("Applying bounce animation");
+            const bounceHeight = Math.sin(progress * Math.PI * 2) * 20;
+            tempContext.translate(0, bounceHeight);
+            break;
+          case "pulse":
+            console.log("Applying pulse animation");
+            const scale = 1 + Math.sin(progress * Math.PI * 2) * 0.2;
+            tempContext.translate(image.x + image.width / 2, image.y + image.height / 2);
+            tempContext.scale(scale, scale);
+            tempContext.translate(-(image.x + image.width / 2), -(image.y + image.height / 2));
+            break;
+          case "float":
+            console.log("Applying float animation");
+            const floatOffset = Math.sin(progress * Math.PI * 2) * 10;
+            tempContext.translate(0, floatOffset);
+            break;
+          default:
+            console.log("No animation applied");
+        }
+        
+        tempContext.drawImage(image.img, image.x, image.y, image.width, image.height);
+        tempContext.restore();
+      } catch (error) {
+        console.error("Error drawing image:", error);
+      }
+    }
+
     tempContext.translate(-panOffset.x, -panOffset.y);
 
-    const blob = await new Promise((resolve) => {
-      tempCanvas.toBlob((blob) => resolve(blob), "image/png");
-    });
-
-    const formData = new FormData();
-    formData.append("image", blob, "drawing.png");
-
     try {
+      const blob = await new Promise((resolve) => {
+        tempCanvas.toBlob((blob) => resolve(blob), "image/png");
+      });
+
+      const formData = new FormData();
+      formData.append("image", blob, "drawing.png");
+
+      console.log("Sending request to ngrok endpoint");
       const url = import.meta.env.VITE_NGROK_ENDPOINT || "https://fbd9-34-125-87-16.ngrok-free.app/process";
+      console.log("Using URL:", url);
+      
       const response = await fetch(url, {
         method: "POST",
         body: formData,
-        credentials: "include", // important!
+        credentials: "include",
       });
 
-      const data = await response.json();
+      console.log("Response status:", response.status);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
 
-      if (response.ok) {
+      const data = await response.json();
+      console.log("Received data:", data);
+
+      if (data.image) {
+        console.log("Processing received image");
         const img = new Image();
+        img.crossOrigin = "anonymous"; // Add this line
         img.src = `data:image/png;base64,${data.image}`;
         img.onload = () => {
+          console.log("Image loaded successfully");
           setProcessedImages((prev) => [
             ...prev,
             {
@@ -774,47 +850,87 @@ const FirstBoard = () => {
               width: img.width / 2,
               height: img.height / 2,
               isDragging: false,
-              animationType: "none", // Changed from "rotate" to "none"
+              animationType: "none",
               startTime: Date.now(),
               duration: 3000
             }
           ]);
         };
       } else {
-        console.error("Error from server:", data.error);
-        showCanvasAlert("Failed to process image!");
+        throw new Error("No image data received from server");
       }
     } catch (error) {
-      console.error("Network error:", error);
-      showCanvasAlert("Network error while processing image!");
+      console.error("Error processing image:", error);
+      showCanvasAlert("Failed to process image! Please try again.");
     }
   };
 
-
-
-
   const saveCanvasWithProcessedImage = () => {
-    const canvas = canvasRef.current;
-    const tempCanvas = document.createElement("canvas");
-    tempCanvas.width = canvas.width;
-    tempCanvas.height = canvas.height;
-    const tempContext = tempCanvas.getContext("2d");
+    try {
+      const canvas = canvasRef.current;
+      const tempCanvas = document.createElement("canvas");
+      tempCanvas.width = canvas.width;
+      tempCanvas.height = canvas.height;
+      const tempContext = tempCanvas.getContext("2d");
 
-    tempContext.fillStyle = pageColor || "#ffffff";
-    tempContext.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
-    tempContext.translate(panOffset.x, panOffset.y);
-    elements.forEach((element) => {
-      drawElement(rough.canvas(tempCanvas), tempContext, element);
-    });
-    processedImages.forEach((image) => {
-      tempContext.drawImage(image.img, image.x, image.y, image.width, image.height);
-    });
-    tempContext.translate(-panOffset.x, -panOffset.y);
+      tempContext.fillStyle = pageColor || "#ffffff";
+      tempContext.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+      tempContext.translate(panOffset.x, panOffset.y);
+      
+      // Draw elements
+      elements.forEach((element) => {
+        drawElement(rough.canvas(tempCanvas), tempContext, element);
+      });
 
-    const link = document.createElement("a");
-    link.download = "drawing.png";
-    link.href = tempCanvas.toDataURL("image/png");
-    link.click();
+      // Draw processed images with their current state
+      for (const image of processedImages) {
+        try {
+          tempContext.save();
+          tempContext.globalAlpha = 0.7;
+          
+          // Apply the current animation state
+          const elapsed = Date.now() - image.startTime;
+          const progress = (elapsed % image.duration) / image.duration;
+          
+          switch (image.animationType) {
+            case "rotate":
+              tempContext.translate(image.x + image.width / 2, image.y + image.height / 2);
+              tempContext.rotate(progress * Math.PI * 2);
+              tempContext.translate(-(image.x + image.width / 2), -(image.y + image.height / 2));
+              break;
+            case "bounce":
+              const bounceHeight = Math.sin(progress * Math.PI * 2) * 20;
+              tempContext.translate(0, bounceHeight);
+              break;
+            case "pulse":
+              const scale = 1 + Math.sin(progress * Math.PI * 2) * 0.2;
+              tempContext.translate(image.x + image.width / 2, image.y + image.height / 2);
+              tempContext.scale(scale, scale);
+              tempContext.translate(-(image.x + image.width / 2), -(image.y + image.height / 2));
+              break;
+            case "float":
+              const floatOffset = Math.sin(progress * Math.PI * 2) * 10;
+              tempContext.translate(0, floatOffset);
+              break;
+          }
+          
+          tempContext.drawImage(image.img, image.x, image.y, image.width, image.height);
+          tempContext.restore();
+        } catch (error) {
+          console.error("Error drawing image:", error);
+        }
+      }
+
+      tempContext.translate(-panOffset.x, -panOffset.y);
+
+      const link = document.createElement("a");
+      link.download = "drawing.png";
+      link.href = tempCanvas.toDataURL("image/png");
+      link.click();
+    } catch (error) {
+      console.error("Error saving canvas:", error);
+      showCanvasAlert("Failed to save image! Please try again.");
+    }
   };
 
   const saveToDatabase = async () => {
@@ -968,6 +1084,7 @@ const FirstBoard = () => {
   // Update handleImageSelect function to place images randomly
   const handleImageSelect = (imageSrc, animationType) => {
     const img = new Image();
+    img.crossOrigin = "anonymous"; // Add this line
     img.src = imageSrc;
     img.onload = () => {
       // Calculate random position within canvas bounds
@@ -992,6 +1109,10 @@ const FirstBoard = () => {
         }
       ]);
       showCanvasAlert("Animated image added to canvas!");
+    };
+    img.onerror = () => {
+      console.error("Failed to load image:", imageSrc);
+      showCanvasAlert("Failed to load image. Please try again.");
     };
     setShowAnimationDashboard(false);
   };
@@ -1640,7 +1761,7 @@ const FirstBoard = () => {
 
       {/* Animation Dashboard */}
       {showAnimationDashboard && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 animate-fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-auto bg-black bg-opacity-50 animate-fade-in scrollbar scrollbar-thumb-blue-500 scrollbar-track-gray-100">
           <div className="w-full max-w-2xl p-6 bg-white shadow-2xl rounded-xl animate-slide-up">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-2xl font-bold text-purple-800">Pick an Animation Image!</h3>
@@ -1653,8 +1774,8 @@ const FirstBoard = () => {
                 </svg>
               </button>
             </div>
-            <p className="mb-2 text-lg text-purple-600">Click on an image to add it to the canvas in a random position!</p>
-            <div className="grid grid-cols-2 gap-4">
+            <p className="mb-2 overflow-auto text-lg text-purple-600 scrollbar scrollbar-thumb-blue-500 scrollbar-track-gray-100">Click on an image to add it to the canvas in a random position!</p>
+            <div className="grid grid-cols-2 gap-4 overflow-auto scrollbar scrollbar-thumb-blue-500 scrollbar-track-gray-100">
               {animationImages.map((image) => (
                 <div key={image.id} className="space-y-2">
                   <button
