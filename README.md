@@ -2,7 +2,7 @@
 
 ![github-submission-banner](https://github.com/user-attachments/assets/a1493b84-e4e2-456e-a791-ce35ee2bcf2f)
 
-# 🚀 ImaginationBook
+# 🚀 <a href="https://imaginationbook-5d4r.onrender.com">ImaginationBook</a>
 
 > **Empowering children's creativity — turning their imagination into magical realities through AI.**
 
@@ -92,13 +92,13 @@ We empower kids to become creators, not just users.
 -   ✅ **Seamless API Integration:** Real-time creative feedback and artwork generation.
     
 
-_(Demo images/screenshots will be attached here if you have)_
+![Image](https://github.com/user-attachments/assets/1610c3fa-4774-4cb1-9fde-846c9e89cf21)
 
 ----------
 
 ## 📽️ Demo & Deliverables
 
--   **Demo Video Link:** [Paste YouTube or Loom link here]
+-   **Demo Video Link:** https://youtu.be/NmA61h9nU1o
     
 -   **PPT Link:** [Paste Google Slides / PDF link here]
     
