@@ -92,91 +92,118 @@ app.post("/signup", async (req, res) => {
         subject: '🎉 Welcome to Imagination Book – Let Your Story Come to Life',
         html: `
         <html>
-          <head>
-            <style>
-              @keyframes bounce {
-                0%, 100% { transform: translateY(0); }
-                50% { transform: translateY(-10px); }
-              }
-              .container {
-                font-family: 'Comic Sans MS', 'Arial', sans-serif;
-                background: #f0f8ff;
-                padding: 20px;
-                border-radius: 10px;
-                color: #333;
-                max-width: 600px;
-                margin: auto;
-              }
-              .header {
-                text-align: center;
-                font-size: 26px;
-                color: #ff6f61;
-                animation: bounce 2s infinite;
-              }
-              .subheader {
-                text-align: center;
-                font-size: 18px;
-                color: #6a5acd;
-                margin-top: 10px;
-              }
-              .content {
-                font-size: 16px;
-                margin-top: 20px;
-              }
-              .list-item {
-                margin: 10px 0;
-              }
-              .button {
-                display: inline-block;
-                background-color: #ff6f61;
-                color: white;
-                padding: 12px 24px;
-                margin-top: 20px;
-                border-radius: 30px;
-                text-decoration: none;
-                font-weight: bold;
-                transition: background-color 0.3s;
-              }
-              .button:hover {
-                background-color: #ff4500;
-              }
-              .footer {
-                margin-top: 30px;
-                font-size: 14px;
-                text-align: center;
-                color: #888;
-              }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <div class="header">🎉 Welcome to Imagination Book! 🎨✨</div>
-              <div class="subheader">Let Your Story Come to Life</div>
-      
-              <div class="content">
-                Hi ${name},<br><br>
-      
-                We’re super excited to have you join <strong>Imagination Book</strong> — the place where your ideas turn into magical stories, animations, and adventures! 🌟<br><br>
-      
-                Here's what you can do next:
-                <ul>
-                  <li class="list-item">📖 Start a new story with AI-powered visuals</li>
-                  <li class="list-item">🎬 Add animations and videos that move with your imagination</li>
-                  <li class="list-item">🌐 Share your creation with the world in just a few clicks</li>
-                </ul>
-      
-                Your imagination is the limit — and we’re here to make it even bigger! 🚀<br><br>
-      
-                <a href="https://imaginationbook-5d4r.onrender.com/" class="button">Start Creating Now!</a><br><br>
+            <head>
+              <style>
+                @keyframes float {
+                  0% { transform: translateY(0px); }
+                  50% { transform: translateY(-8px); }
+                  100% { transform: translateY(0px); }
+                }
+
+                @keyframes colorShift {
+                  0% { background: linear-gradient(45deg, #ff9a9e, #fad0c4); }
+                  50% { background: linear-gradient(45deg, #a1c4fd, #c2e9fb); }
+                  100% { background: linear-gradient(45deg, #ff9a9e, #fad0c4); }
+                }
+
+                .container {
+                  font-family: 'Comic Sans MS', 'Arial', sans-serif;
+                  background: #f0f8ff;
+                  padding: 20px;
+                  border-radius: 15px;
+                  color: #333;
+                  max-width: 600px;
+                  margin: auto;
+                  box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+                  animation: float 4s ease-in-out infinite;
+                  transform-style: preserve-3d;
+                  perspective: 1000px;
+                }
+
+                .header {
+                  text-align: center;
+                  font-size: 28px;
+                  color: #ff6f61;
+                  animation: float 3s ease-in-out infinite;
+                  transform: rotateX(10deg) rotateY(10deg);
+                }
+
+                .subheader {
+                  text-align: center;
+                  font-size: 18px;
+                  color: #6a5acd;
+                  margin-top: 10px;
+                  font-weight: bold;
+                }
+
+                .content {
+                  font-size: 16px;
+                  margin-top: 20px;
+                  line-height: 1.6;
+                }
+
+                .list-item {
+                  margin: 10px 0;
+                }
+
+                .button {
+                  display: inline-block;
+                  background: linear-gradient(45deg, #ff6f61, #ff9a9e);
+                  color: white;
+                  padding: 12px 24px;
+                  margin-top: 20px;
+                  border-radius: 30px;
+                  text-decoration: none;
+                  font-weight: bold;
+                  box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.3);
+                  transition: all 0.4s ease;
+                  animation: colorShift 6s infinite alternate;
+                }
+
+                .button:hover {
+                  transform: scale(1.1) rotate(2deg);
+                  box-shadow: 0px 8px 20px rgba(255, 111, 97, 0.6);
+                }
+
+                .footer {
+                  margin-top: 30px;
+                  font-size: 14px;
+                  text-align: center;
+                  color: #666;
+                  font-style: italic;
+                }
+              </style>
+            </head>
+            <body>
+              <div class="container">
+                <div class="header">🎉 Welcome to Imagination Book! 🎨✨</div>
+                <div class="subheader">Let Your Story Come to Life</div>
+
+                <div class="content">
+                  Hi ${name},<br><br>
+
+                  We’re super excited to have you join <strong>Imagination Book</strong> — the place where your ideas turn into magical stories, animations, and adventures! 🌟<br><br>
+
+                  Here's what you can do next:
+                  <ul>
+                    <li class="list-item">📖 Start a new story with AI-powered visuals</li>
+                    <li class="list-item">🎬 Add animations and videos that move with your imagination</li>
+                    <li class="list-item">🌐 Share your creation with the world in just a few clicks</li>
+                  </ul>
+
+                  Your imagination is the limit — and we’re here to make it even bigger! 🚀<br><br>
+
+                  <a href="https://imaginationbook-5d4r.onrender.com/" class="button">🌟 Start Creating Now!</a><br><br>
+                </div>
+
+                <div class="footer">
+                  Need help? Just reply to this email or visit our Help Center.<br><br>
+                  Thank you for choosing Imagination Book. Let’s make stories unforgettable! 🌈
+                </div>
               </div>
-      
-              <div class="footer">
-                Need help? Just reply to this email or visit our Help Center.<br><br>
-                Thank you for choosing Imagination Book. Let’s make stories unforgettable! 🌈
-              </div>
-            </div>
-          </body>
-        </html>
+            </body>
+          </html>
+
         `
       };
       

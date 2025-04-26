@@ -8,7 +8,6 @@ import drawingAnimation1 from "../assets/paint1.json";
 import drawingAnimation2 from "../assets/paint2.json"; 
 import drawingAnimation3 from "../assets/paint3.json"; 
 
-
 export default function ImaginationBookHome() {
   const [activeTab, setActiveTab] = useState('explore');
   const [animateBackground, setAnimateBackground] = useState(0);
@@ -18,8 +17,19 @@ export default function ImaginationBookHome() {
   const [selectedAvatar, setSelectedAvatar] = useState('');
   const [error, setError] = useState('');
 
-  // let finalEmail = null ;
-  // let finalPassword = null ;
+  const shouldShowAlert = () => {
+    const lastShownDate = localStorage.getItem('lastAlertShown');
+    const today = new Date().toDateString();
+    
+    if (!lastShownDate || lastShownDate !== today) {
+      localStorage.setItem('lastAlertShown', today);
+      return true;
+    }
+    return false;
+  };
+
+  const [showAlert, setShowAlert] = useState(shouldShowAlert());
+
   const email = useSelector((state) => state.user?.userEmail)
   const password = useSelector((state) => state.user?.userPassword);
 
@@ -29,14 +39,9 @@ export default function ImaginationBookHome() {
   let finalEmail = localStorage?.getItem("email") || email;
   let finalPassword = localStorage?.getItem("password") || password;
 
-  // console.log("Final Email:", finalEmail);
-  // console.log("Final Password:", finalPassword);
-
   if(!finalEmail && !finalPassword) { 
     navigate("/");
   }
-
-
 
 const featured = 
 
@@ -66,6 +71,10 @@ const featured =
     }
   }, []);
 
+  useEffect(() => {
+    setShowAlert(shouldShowAlert());
+  }, []);
+
   // Sample draft data
   const fetchDrafts = async (retryCount = 0) => {
     try {
@@ -78,7 +87,7 @@ const featured =
       setError(null); // Clear any previous errors
     } catch (error) {
       console.error("Error fetching drafts:", error);
-      if (retryCount < 3) {
+      if (retryCount < 3) { // Limit retries to 3 attempts
         // Retry after 1 second
         setTimeout(() => fetchDrafts(retryCount + 1), 1000);
       } else {
@@ -93,7 +102,7 @@ const featured =
     }
   }, [email]);
 
-  // Add a retry button
+  // Add a retry button handler
   const handleRetry = () => {
     setError(null);
     fetchDrafts();
@@ -101,7 +110,6 @@ const featured =
 
   // Predefined avatar options
   const avatarOptions = [
-    
     "https://i.seadn.io/gae/Y3_9Lz2P3gGeqcbWGt261ChjZhU-Yn8pInui5jJs0rqlf9PI9GGInKMjkWcNG00Dh0KVVUGpZRr5StFhgGzmuOFwREyX9z-gbnXvyQ?auto=format&dpr=1&w=3840",
     "https://cdn3.iconfinder.com/data/icons/avatars-9/145/Avatar_Penguin-512.png",
     "https://cdn3.iconfinder.com/data/icons/avatars-9/145/Avatar_Cat-512.png",
@@ -155,8 +163,7 @@ const featured =
                transition: 'background-position 0.5s ease-out'
              }}></div>
       </div>
-
-      {/* 3D Floating Objects */}
+      
       <div className="absolute transform top-1/4 left-10 -rotate-12 animate-float">
         <div className="w-16 h-16 transform rounded-lg shadow-xl bg-gradient-to-br from-blue-300 to-purple-300 perspective-800 rotateY-20 rotateX-10" 
              style={{boxShadow: '0 10px 30px -5px rgba(129,80,255,0.3), 0 5px 15px rgba(0, 0, 0, 0.1)'}}></div>
@@ -238,6 +245,70 @@ const featured =
         </div>
       )}
 
+      {/* Alert Modal */}
+      {showAlert && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm">
+          <div className="relative max-w-md p-6 bg-white shadow-2xl rounded-3xl animate-float">
+            {/* Rainbow border effect */}
+            <div className="absolute inset-0 border-4 border-transparent rounded-3xl animate-rainbow-border"></div>
+            
+            <div className="relative">
+              {/* Close button */}
+              <button 
+                onClick={() => setShowAlert(false)}
+                className="absolute p-2 text-gray-400 transition-colors -top-2 -right-2 hover:text-gray-600"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+
+              {/* Content */}
+              <div className="space-y-4 text-center">
+                <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600">
+                  🎨 Image Generation is Open! 🎨
+                </h2>
+                <div className="p-4 space-y-3 text-left bg-purple-50 rounded-2xl">
+                  <p className="flex items-center text-lg font-medium text-purple-800">
+                    <span className="mr-2">🖥️</span> 
+                    You can generate images 30 hours every week!
+                  </p>
+                  <p className="flex items-center text-lg font-medium text-purple-800">
+                    <span className="mr-2">🕕</span> 
+                    Available Daily: 6:00 PM – 9:00 PM
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="flex items-center justify-center text-green-600">
+                    <span className="mr-2">✅</span>
+                    Create stunning images during these hours
+                  </p>
+                  <p className="flex items-center justify-center text-green-600">
+                    <span className="mr-2">✅</span>
+                    GPU power is reserved just for you — no waiting!
+                  </p>
+                </div>
+
+                <div className="pt-2">
+                  <p className="text-lg font-bold text-purple-600">
+                    Plan your creations and make every minute count! 🚀
+                  </p>
+                </div>
+
+                {/* Fun button */}
+                <button
+                  onClick={() => setShowAlert(false)}
+                  className="px-8 py-3 mt-4 text-lg font-bold text-white transition-all transform rounded-full bg-gradient-to-r from-purple-500 to-pink-500 hover:scale-105 hover:shadow-lg active:scale-95"
+                >
+                  Let's Create! ✨
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Navigation Bar */}
       <nav className="sticky top-0 z-20 py-2 bg-white border-b border-purple-100 shadow-lg bg-opacity-80 backdrop-filter backdrop-blur-md">
         <div className="container flex justify-center mx-auto">
@@ -298,148 +369,132 @@ const featured =
           </div>
         )}
 
+        {/* Story Canvas */}
+        {activeTab === 'explore' && (
+          <div className="grid grid-cols-1 gap-6 mb-8 md:grid-cols-3">
+            <div className="overflow-hidden transition-all transform bg-white border border-blue-100 shadow-xl cursor-pointer group rounded-3xl hover:scale-105">
+              <div className="relative flex items-center justify-center h-48 overflow-hidden rounded-t-3xl"
+                onClick={() => navigate("/board1")}
+              >
+                <Player
+                  autoplay
+                  loop
+                  src={drawingAnimation1}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    height: "100%",
+                    width: "100%",
+                    zIndex: 0,
+                  }}
+                />
+                <div className="absolute inset-0 z-10 transition-opacity duration-300 bg-white opacity-0 group-hover:opacity-10"></div>
+              </div>
+              <div className="relative z-10 p-6 bg-white rounded-b-3xl">
+                <h3 className="flex items-center mb-2 text-xl font-bold text-blue-600">
+                  Magic Garden
+                  <Sparkles className="ml-2 text-yellow-500" size={16} />
+                </h3>
+                <p className="text-gray-600">
+                  Write your story and watch it transform into magical animations and illustrations!
+                </p>
+                <div className="flex justify-end mt-4">
+                  <button
+                    onClick={() => navigate("/board1")}
+                    className="flex items-center px-6 py-2 text-sm text-white transition-all transform bg-blue-500 rounded-full shadow-lg hover:bg-blue-400 hover:scale-105"
+                  >
+                    <Zap className="mr-1" size={14} />
+                    Open Canvas
+                  </button>
+                </div>
+              </div>
+            </div>
 
+            {/* Art Canvas */}
+            <div className="overflow-hidden transition-all transform bg-white border border-blue-100 shadow-xl cursor-pointer group rounded-3xl hover:scale-105">
+              <div className="relative flex items-center justify-center h-48 overflow-hidden rounded-t-3xl"
+                onClick={() => navigate("/board2")}
+              >
+                <Player
+                  autoplay
+                  loop
+                  src={drawingAnimation2}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    height: "100%",
+                    width: "100%",
+                    zIndex: 0,
+                  }}
+                />
+                <div className="absolute inset-0 z-10 transition-opacity duration-300 bg-white opacity-0 group-hover:opacity-10"></div>
+              </div>
+              <div className="relative z-10 p-6 bg-white rounded-b-3xl">
+                <h3 className="flex items-center mb-2 text-xl font-bold text-blue-600">
+                  PlayPalette
+                  <Sparkles className="ml-2 text-yellow-500" size={16} />
+                </h3>
+                <p className="text-gray-600">        
+                  Describe what you imagine and watch as AI creates amazing artwork from your ideas!
+                </p>
+                <div className="flex justify-end mt-4">
+                  <button
+                    onClick={() => navigate("/board2")}
+                    className="flex items-center px-6 py-2 text-sm text-white transition-all transform bg-blue-500 rounded-full shadow-lg hover:bg-blue-400 hover:scale-105"
+                  >
+                    <Zap className="mr-1" size={14} />
+                    Open Canvas
+                  </button>
+                </div>
+              </div>
+            </div>
 
+            {/* Animation Canvas */}
+            <div className="overflow-hidden transition-all transform bg-white border border-blue-100 shadow-xl cursor-pointer group rounded-3xl hover:scale-105">
+              <div
+                className="relative flex items-center justify-center h-48 overflow-hidden rounded-t-3xl"
+                onClick={() => navigate("/board3")}
+              >
+                <Player
+                  autoplay 
+                  loop
+                  src={drawingAnimation3}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    height: "100%",
+                    width: "100%",
+                    zIndex: 0,
+                  }}
+                />
+                <div className="absolute inset-0 z-10 transition-opacity duration-300 bg-white opacity-0 group-hover:opacity-10"></div>
+              </div>
 
-
-
-
-
-
-
-{activeTab === 'explore' && (
-  <div className="grid grid-cols-1 gap-6 mb-8 md:grid-cols-3">
-    
-    {/* Story Canvas */}
-    <div className="overflow-hidden transition-all transform bg-white border border-blue-100 shadow-xl cursor-pointer group rounded-3xl hover:scale-105">
-      <div
-        className="relative flex items-center justify-center h-48 overflow-hidden rounded-t-3xl"
-        onClick={() => navigate("/board1")}
-      >
-        <Player
-          autoplay
-          loop
-          src={drawingAnimation1}
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            height: "100%",
-            width: "100%",
-            zIndex: 0,
-          }}
-        />
-        <div className="absolute inset-0 z-10 transition-opacity duration-300 bg-white opacity-0 group-hover:opacity-10"></div>
-      </div>
-
-      <div className="relative z-10 p-6 bg-white rounded-b-3xl">
-        <h3 className="flex items-center mb-2 text-xl font-bold text-blue-600">
-          Magic Garden
-          <Sparkles className="ml-2 text-yellow-500" size={16} />
-        </h3>
-        <p className="text-gray-600">
-          Write your story and watch it transform into magical animations and illustrations!
-        </p>
-        <div className="flex justify-end mt-4">
-          <button
-            onClick={() => navigate("/board1")}
-            className="flex items-center px-6 py-2 text-sm text-white transition-all transform bg-blue-500 rounded-full shadow-lg hover:bg-blue-400 hover:scale-105"
-          >
-            <Zap className="mr-1" size={14} />
-            Open Canvas
-          </button>
-        </div>
-      </div>
-    </div>
-
-    {/* Art Canvas */}
-    <div className="overflow-hidden transition-all transform bg-white border border-blue-100 shadow-xl cursor-pointer group rounded-3xl hover:scale-105">
-      <div
-        className="relative flex items-center justify-center h-48 overflow-hidden rounded-t-3xl"
-        onClick={() => navigate("/board2")}
-      >
-        <Player
-          autoplay
-          loop
-          src={drawingAnimation2}
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            height: "100%",
-            width: "100%",
-            zIndex: 0,
-          }}
-        />
-        <div className="absolute inset-0 z-10 transition-opacity duration-300 bg-white opacity-0 group-hover:opacity-10"></div>
-      </div>
-
-      <div className="relative z-10 p-6 bg-white rounded-b-3xl">
-        <h3 className="flex items-center mb-2 text-xl font-bold text-blue-600">
-          PlayPalette
-          <Sparkles className="ml-2 text-yellow-500" size={16} />
-        </h3>
-        <p className="text-gray-600">
-          Describe what you imagine and watch as AI creates amazing artwork from your ideas!
-        </p>
-        <div className="flex justify-end mt-4">
-          <button
-            onClick={() => navigate("/board2")}
-            className="flex items-center px-6 py-2 text-sm text-white transition-all transform bg-blue-500 rounded-full shadow-lg hover:bg-blue-400 hover:scale-105"
-          >
-            <Zap className="mr-1" size={14} />
-            Open Canvas
-          </button>
-        </div>
-      </div>
-    </div>
-
-    {/* Animation Canvas */}
-    <div className="overflow-hidden transition-all transform bg-white border border-blue-100 shadow-xl cursor-pointer group rounded-3xl hover:scale-105">
-      <div
-        className="relative flex items-center justify-center h-48 overflow-hidden rounded-t-3xl"
-        onClick={() => navigate("/board3")}
-      >
-        <Player
-          autoplay
-          loop
-          src={drawingAnimation3}
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            height: "100%",
-            width: "100%",
-            zIndex: 0,
-          }}
-        />
-        <div className="absolute inset-0 z-10 transition-opacity duration-300 bg-white opacity-0 group-hover:opacity-10"></div>
-      </div>
-
-      <div className="relative z-10 p-6 bg-white rounded-b-3xl">
-        <h3 className="flex items-center mb-2 text-xl font-bold text-blue-600">
-          Animagic
-          <Sparkles className="ml-2 text-yellow-500" size={16} />
-        </h3>
-        <p className="text-gray-600">
-          Turn your ideas into animated stories using our creative AI-powered animation canvas!
-        </p>
-        <div className="flex justify-end mt-4">
-          <button
-            onClick={() => navigate("/board3")}
-            className="flex items-center px-6 py-2 text-sm text-white transition-all transform bg-blue-500 rounded-full shadow-lg hover:bg-blue-400 hover:scale-105"
-          >
-            <Zap className="mr-1" size={14} />
-            Open Canvas
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-)}
-
+              <div className="relative z-10 p-6 bg-white rounded-b-3xl">
+                <h3 className="flex items-center mb-2 text-xl font-bold text-blue-600">
+                  Animagic
+                  <Sparkles className="ml-2 text-yellow-500" size={16} />
+                </h3>
+                <p className="text-gray-600">
+                  Turn your ideas into animated stories using our creative AI-powered animation canvas!
+                </p>
+                <div className="flex justify-end mt-4">
+                  <button
+                    onClick={() => navigate("/board3")}
+                    className="flex items-center px-6 py-2 text-sm text-white transition-all transform bg-blue-500 rounded-full shadow-lg hover:bg-blue-400 hover:scale-105"
+                  >
+                    <Zap className="mr-1" size={14} />
+                    Open Canvas
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         
-
         {/* History/Drafts Section */}
         {activeTab === 'history' && (
           <div className="p-6 bg-white border border-purple-100 shadow-xl rounded-3xl">
@@ -468,7 +523,7 @@ const featured =
                         <h3 className="text-lg font-bold text-gray-800">{draft.name}</h3>
                         <p className="text-sm text-gray-500">
                           Last edited: {new Date(draft.updatedAt).toLocaleString()}
-                        </p>                      
+                        </p>
                       </div>
                     </div>
                     <div className="flex space-x-2">
@@ -577,59 +632,95 @@ const featured =
           0%, 100% { transform: translateY(0) rotate(-12deg); }
           50% { transform: translateY(-15px) rotate(-8deg); }
         }
+
         @keyframes float-slow {
           0%, 100% { transform: translateY(0) rotate(12deg); }
           50% { transform: translateY(-10px) rotate(16deg); }
         }
+
         @keyframes spin-slow {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
         }
+
         @keyframes pulse-slow {
           0%, 100% { opacity: 0.5; }
           50% { opacity: 0.8; }
         }
+
         @keyframes ping-slow {
           0% { transform: scale(1); opacity: 0.8; }
           75%, 100% { transform: scale(1.5); opacity: 0; }
         }
+
         @keyframes slight-shake {
           0%, 100% { transform: rotate(0deg); }
           25% { transform: rotate(3deg); }
           75% { transform: rotate(-3deg); }
         }
-        .animate-float {
-          animation: float 6s ease-in-out infinite;
+
+        @keyframes rainbow-border {
+          0%, 100% { border-color: #60a5fa; }
+          25% { border-color: #c084fc; }
+          50% { border-color: #f472b6; }
+          75% { border-color: #fde047; }
         }
-        .animate-float-slow {
-          animation: float-slow 8s ease-in-out infinite;
+
+        .animate-rainbow-border {
+          animation: rainbow-border 4s linear infinite;
         }
-        .animate-spin-slow {
-          animation: spin-slow 10s linear infinite;
+
+        @keyframes slide-up {
+          from { transform: translateY(100%); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
         }
-        .animate-pulse-slow {
-          animation: pulse-slow 3s ease-in-out infinite;
+
+        .animate-slide-up {
+          animation: slide-up 0.5s ease-out;
         }
-        .animate-ping-slow {
-          animation: ping-slow 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+
+        .rotateX-10 {
+          transform: rotateX(10deg);
         }
-        .animate-slight-shake {
-          animation: slight-shake 2s ease-in-out infinite;
-        }
-        .hover\:scale-102:hover {
-          transform: scale(1.02);
-        }
-        .hover\:scale-105:hover {
-          transform: scale(1.05);
-        }
-        .perspective-800 {
-          perspective: 800px;
-        }
+
         .rotateY-20 {
           transform: rotateY(20deg);
         }
-        .rotateX-10 {
-          transform: rotateX(10deg);
+
+        .perspective-800 {
+          perspective: 800px;
+        }
+
+        .hover\:scale-105:hover {
+          transform: scale(1.05);
+        }
+
+        .hover\:scale-102:hover {
+          transform: scale(1.02);
+        }
+
+        .animate-float {
+          animation: float 6s ease-in-out infinite;
+        }
+
+        .animate-float-slow {
+          animation: float-slow 8s ease-in-out infinite;
+        }
+
+        .animate-spin-slow {
+          animation: spin-slow 10s linear infinite;
+        }
+
+        .animate-pulse-slow {
+          animation: pulse-slow 3s ease-in-out infinite;
+        }
+
+        .animate-ping-slow {
+          animation: ping-slow 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+        }
+
+        .animate-slight-shake {
+          animation: slight-shake 2s ease-in-out infinite;
         }
       `}</style>
     </div>
