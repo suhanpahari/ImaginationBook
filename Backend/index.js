@@ -86,33 +86,102 @@ app.post("/signup", async (req, res) => {
           }
       });
 
-      const mailOptions = {
-          from: 'imaginationbookpvtltd@gmail.com',
-          to: email,
-          subject: '🎉 Welcome to Imagination Book – Let Your Story Come to Life',
-          text: `Hi ${name},
-
-              Welcome aboard! 🎨✨
-
-              We’re thrilled to have you join Imagination Book — the platform where creativity meets cutting-edge AI. Whether you’re crafting magical stories, educational adventures, or personalized memories, our tools help you bring them to life through interactive pictures, animations, and videos — all powered by AI.
-
-              Here's what you can do next:
-
-              📖 Start a new story with AI-assisted visuals
-              🎬 Add animations and videos that respond to your imagination
-              🌐 Share your creation with the world in just a few clicks
-
-              Your imagination is the limit — and we’re here to help you stretch it further than ever.
-
-              🚀 Ready to get started?
-              Log in now and start creating: https://imaginationbook-5d4r.onrender.com/
-
-              Need help or have questions? Just reply to this email or check out our Help Center.
-
-              Thank you for choosing Imagination Book. Let’s make stories unforgettable!`
-                    };
-
+    const mailOptions = {
+        from: 'imaginationbookpvtltd@gmail.com',
+        to: email,
+        subject: '🎉 Welcome to Imagination Book – Let Your Story Come to Life',
+        html: `
+        <html>
+          <head>
+            <style>
+              @keyframes bounce {
+                0%, 100% { transform: translateY(0); }
+                50% { transform: translateY(-10px); }
+              }
+              .container {
+                font-family: 'Comic Sans MS', 'Arial', sans-serif;
+                background: #f0f8ff;
+                padding: 20px;
+                border-radius: 10px;
+                color: #333;
+                max-width: 600px;
+                margin: auto;
+              }
+              .header {
+                text-align: center;
+                font-size: 26px;
+                color: #ff6f61;
+                animation: bounce 2s infinite;
+              }
+              .subheader {
+                text-align: center;
+                font-size: 18px;
+                color: #6a5acd;
+                margin-top: 10px;
+              }
+              .content {
+                font-size: 16px;
+                margin-top: 20px;
+              }
+              .list-item {
+                margin: 10px 0;
+              }
+              .button {
+                display: inline-block;
+                background-color: #ff6f61;
+                color: white;
+                padding: 12px 24px;
+                margin-top: 20px;
+                border-radius: 30px;
+                text-decoration: none;
+                font-weight: bold;
+                transition: background-color 0.3s;
+              }
+              .button:hover {
+                background-color: #ff4500;
+              }
+              .footer {
+                margin-top: 30px;
+                font-size: 14px;
+                text-align: center;
+                color: #888;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="header">🎉 Welcome to Imagination Book! 🎨✨</div>
+              <div class="subheader">Let Your Story Come to Life</div>
+      
+              <div class="content">
+                Hi ${name},<br><br>
+      
+                We’re super excited to have you join <strong>Imagination Book</strong> — the place where your ideas turn into magical stories, animations, and adventures! 🌟<br><br>
+      
+                Here's what you can do next:
+                <ul>
+                  <li class="list-item">📖 Start a new story with AI-powered visuals</li>
+                  <li class="list-item">🎬 Add animations and videos that move with your imagination</li>
+                  <li class="list-item">🌐 Share your creation with the world in just a few clicks</li>
+                </ul>
+      
+                Your imagination is the limit — and we’re here to make it even bigger! 🚀<br><br>
+      
+                <a href="https://imaginationbook-5d4r.onrender.com/" class="button">Start Creating Now!</a><br><br>
+              </div>
+      
+              <div class="footer">
+                Need help? Just reply to this email or visit our Help Center.<br><br>
+                Thank you for choosing Imagination Book. Let’s make stories unforgettable! 🌈
+              </div>
+            </div>
+          </body>
+        </html>
+        `
+      };
+      
       const result = await transporter.sendMail(mailOptions);
+      
       // console.log(result) ;
        // Create and save new user
        const saltRounds = 10;
