@@ -12,6 +12,13 @@ import cartoon5 from '../assets/cartoon-5.jpg';
 import magic1 from '../assets/magic-1.png';
 import magic2 from '../assets/magic-2.png';
 import magic3 from '../assets/magic-3.png';
+import sticker1 from "../assets/sticker-1.jpg"; 
+import sticker2 from "../assets/sticker-2.png"; 
+import sticker3 from "../assets/sticker-3.jpg"; 
+// import sticker4 from "../assets/sticker-4.jpg"; 
+import sticker5 from "../assets/sticker-5.jpg"; 
+import sticker6 from "../assets/sticker-6.jpg"; 
+import sticker7 from "../assets/sticker-7.jpg"; 
 import {
   Pencil,
   Square,
@@ -38,17 +45,32 @@ const cartoonFigures = [
   {
     id: "cartoon-1",
     name: "Cartoon Cat",
-    src: "https://th.bing.com/th/id/OIP.DLVD0nvNcdOSWCj9ui22ZwHaGm?w=860&h=767&rs=1&pid=ImgDetMain",
+    src: sticker1,
   },
   {
     id: "cartoon-2",
     name: "Cartoon Dog",
-    src: "https://static.vecteezy.com/system/resources/previews/022/938/540/non_2x/cute-cat-line-art-for-drawing-free-vector.jpg",
+    src: sticker2,
   },
   {
     id: "cartoon-3",
     name: "Cartoon Bird",
-    src: "https://th.bing.com/th/id/OIP.CEG8SXa4gpQQSCvK-13wOQHaIg?rs=1&pid=ImgDetMain?height=100&width=100",
+    src: sticker3,
+  },
+  {
+    id: "cartoon-4",
+    name: "Cartoon Fish",
+    src: sticker5,
+  },
+  {
+    id: "cartoon-5",
+    name: "Cartoon Rabbit",
+    src: sticker6,
+  },
+  {
+    id: "cartoon-6",
+    name: "Cartoon Elephant",
+    src: sticker7,
   },
 ];
 

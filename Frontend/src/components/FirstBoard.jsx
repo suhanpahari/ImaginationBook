@@ -14,6 +14,16 @@ import magic1 from '../assets/magic-1.png';
 import magic2 from '../assets/magic-2.png';
 import magic3 from '../assets/magic-3.png';
 // import football from "../assets/Football.";  
+// import football from "../assets/Football.";  
+import sticker1 from "../assets/sticker-1.jpg"; 
+import sticker2 from "../assets/sticker-2.png"; 
+import sticker3 from "../assets/sticker-3.jpg"; 
+// import sticker4 from "../assets/sticker-4.jpg"; 
+import sticker5 from "../assets/sticker-5.jpg"; 
+import sticker6 from "../assets/sticker-6.jpg"; 
+import sticker7 from "../assets/sticker-7.jpg"; 
+
+
 
 
 const generator = rough.generator();
@@ -59,6 +69,19 @@ const animationImages = [
   // {id:10 , src :cartoon3 , alt :"magical"},
   
 
+];
+
+
+const stickerOptions = [
+  { id: 1, src: sticker1, alt: "Sticker 1" },
+  { id: 2, src: sticker2, alt: "Sticker 2" },
+  { id: 3, src: sticker3, alt: "Sticker 3" },
+  { id: 4, src: sticker5, alt: "Sticker 4" },
+  { id: 5, src: sticker6, alt: "Sticker 5" },
+  { id: 6, src: sticker7, alt: "Sticker 6" },
+  // { id: 7, src: "https://th.bing.com/th/id/OIP.4rj0v1a2g3qkX6x7b8Z9GQHaE8?pid=ImgDet&w=500&h=500&rs=1", alt: "Sticker 7" },
+  // { id: 8, src: "https://th.bing.com/th/id/OIP.4rj0v1a2g3qkX6x7b8Z9GQHaE8?pid=ImgDet&w=500&h=500&rs=1", alt: "Sticker 8" }, 
+  // Add more stickers as needed
 ];
 
 // Add animation types for elements
@@ -264,6 +287,8 @@ const FirstBoard = () => {
   const [showGrid, setShowGrid] = useState(false);
   const [magicMenuOpen, setMagicMenuOpen] = useState(false);
   const [showVideoSection, setShowVideoSection] = useState(false);
+  const [showVideoPlayer, setShowVideoPlayer] = useState(false);
+  console.log("showVideoSection:", showVideoSection);
   const [videos, setVideos] = useState([]);
   const [selectedVideoId, setSelectedVideoId] = useState(null);
   const [error, setError] = useState(null);
@@ -274,6 +299,10 @@ const FirstBoard = () => {
   const [alertMessage, setAlertMessage] = useState(null);
   const [showAnimationDashboard, setShowAnimationDashboard] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
+  const [showStickerSection, setShowStickerSection] = useState(false);
+  const [stickers, setStickers] = useState([]);
+  const [selectedSticker, setSelectedSticker] = useState(null);
+  const [stickerDragOffset, setStickerDragOffset] = useState({ x: 0, y: 0 });
   const textAreaRef = useRef();
   const canvasRef = useRef();
   const pressedKeys = usePressedKeys();
@@ -285,10 +314,17 @@ const FirstBoard = () => {
   const navigate = useNavigate();
   const email = useSelector((state) => state.user.userEmail);
   const password = useSelector((state) => state.user.userPassword);
+  const [colorPanelPosition, setColorPanelPosition] = useState({ top: 0, left: 0 });
+  const [thicknessPanelPosition, setThicknessPanelPosition] = useState({ top: 0, left: 0 });
+  const [fillPanelPosition, setFillPanelPosition] = useState({ top: 0, left: 0 });
+  const colorButtonRef = useRef(null);
+  const thicknessButtonRef = useRef(null);
+  const fillButtonRef = useRef(null);
 
   const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY;
   const GROQ_API_URL = import.meta.env.VITE_GROQ_API_URL;
   const BASE_URL = import.meta.env.VITE_BASE_URL;
+  const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
 
   const { id } = useParams();
 
@@ -327,14 +363,6 @@ const FirstBoard = () => {
 
 
 
-  
-  const showCanvasAlert = (message, duration = 3000) => {
-    setAlertMessage(message);
-    setTimeout(() => setAlertMessage(null), duration);
-  };
-
-
-
 
   
 
@@ -347,7 +375,7 @@ const FirstBoard = () => {
           q: query,
           type: "video",
           maxResults: 200,
-          key: import.meta.env.VITE_YOUTUBE_API_KEY,
+          key: YOUTUBE_API_KEY,
         },
       });
       const videos = response.data.items.map((item) => ({
@@ -440,6 +468,19 @@ const FirstBoard = () => {
           context.restore();
         });
 
+        // Draw stickers
+        stickers.forEach((sticker) => {
+          context.save();
+          context.drawImage(
+            sticker.img,
+            sticker.x,
+            sticker.y,
+            sticker.width,
+            sticker.height
+          );
+          context.restore();
+        });
+
         if (alertMessage) {
           context.save();
           context.fillStyle = "rgba(0, 0, 0, 0.8)";
@@ -463,7 +504,7 @@ const FirstBoard = () => {
         cancelAnimationFrame(animationFrameId);
       }
     };
-  }, [elements, action, selectedElement, panOffset, showGrid, processedImages, alertMessage, isAnimating]);
+  }, [elements, action, selectedElement, panOffset, showGrid, processedImages, alertMessage, isAnimating, stickers]);
 
   useEffect(() => {
     const undoRedoFunction = (event) => {
@@ -551,22 +592,76 @@ const FirstBoard = () => {
     setProcessedImages((prev) => prev.map((image) => ({ ...image, isDragging: false })));
   };
 
+  const handleStickerMouseDown = (event, stickerIndex) => {
+    if (!stickers[stickerIndex]) return;
+
+    const { clientX, clientY } = getCoordinates(event);
+    const mouseX = clientX - panOffset.x;
+    const mouseY = clientY - panOffset.y;
+    const sticker = stickers[stickerIndex];
+
+    if (
+      mouseX >= sticker.x &&
+      mouseX <= sticker.x + sticker.width &&
+      mouseY >= sticker.y &&
+      mouseY <= sticker.y + sticker.height
+    ) {
+      setSelectedSticker(stickerIndex);
+      setStickerDragOffset({
+        x: mouseX - sticker.x,
+        y: mouseY - sticker.y
+      });
+    }
+  };
+
+  const handleStickerMouseMove = (event) => {
+    if (selectedSticker === null) return;
+
+    const { clientX, clientY } = getCoordinates(event);
+    const mouseX = clientX - panOffset.x;
+    const mouseY = clientY - panOffset.y;
+
+    setStickers(prev => prev.map((sticker, index) => 
+      index === selectedSticker
+        ? {
+            ...sticker,
+            x: mouseX - stickerDragOffset.x,
+            y: mouseY - stickerDragOffset.y
+          }
+        : sticker
+    ));
+  };
+
+  const handleStickerMouseUp = () => {
+    setSelectedSticker(null);
+  };
+
   useEffect(() => {
     const canvas = canvasRef.current;
-    canvas.addEventListener("mousedown", (e) => {
+    
+    const handleMouseDown = (e) => {
       processedImages.forEach((_, index) => handleMouseDown(e, index));
-    });
+      stickers.forEach((_, index) => handleStickerMouseDown(e, index));
+    };
+
+    canvas.addEventListener("mousedown", handleMouseDown);
     canvas.addEventListener("mousemove", handleMouseMove);
+    canvas.addEventListener("mousemove", handleStickerMouseMove);
     canvas.addEventListener("mouseup", handleMouseUp);
+    canvas.addEventListener("mouseup", handleStickerMouseUp);
+    canvas.addEventListener("mouseleave", handleMouseUp);
+    canvas.addEventListener("mouseleave", handleStickerMouseUp);
 
     return () => {
-      canvas.removeEventListener("mousedown", (e) =>
-        processedImages.forEach((_, index) => handleMouseDown(e, index))
-      );
+      canvas.removeEventListener("mousedown", handleMouseDown);
       canvas.removeEventListener("mousemove", handleMouseMove);
+      canvas.removeEventListener("mousemove", handleStickerMouseMove);
       canvas.removeEventListener("mouseup", handleMouseUp);
+      canvas.removeEventListener("mouseup", handleStickerMouseUp);
+      canvas.removeEventListener("mouseleave", handleMouseUp);
+      canvas.removeEventListener("mouseleave", handleStickerMouseUp);
     };
-  }, [processedImages, isDragging, dragOffset, panOffset]);
+  }, [processedImages, stickers, isDragging, dragOffset, panOffset, selectedSticker, stickerDragOffset]);
 
   const updateElement = (id, x1, y1, x2, y2, type, options) => {
     const elementsCopy = [...elements];
@@ -1117,16 +1212,39 @@ const FirstBoard = () => {
     setShowAnimationDashboard(false);
   };
 
+  const handleStickerSelect = (stickerSrc) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.src = stickerSrc;
+    img.onload = () => {
+      // Calculate random position within canvas bounds
+      const canvas = canvasRef.current;
+      const maxX = canvas.width - 100;
+      const maxY = canvas.height - 100;
+      const randomX = Math.floor(Math.random() * maxX);
+      const randomY = Math.floor(Math.random() * maxY);
+
+      setStickers(prev => [...prev, {
+        img,
+        x: randomX - panOffset.x,
+        y: randomY - panOffset.y,
+        width: 100,
+        height: 100,
+        isDragging: false,
+        startTime: Date.now(),
+        duration: 3000,
+        isSelected: false
+      }]);
+    };
+  };
+
   const playerOptions = {
-    height: "100%",
-    width: "100%",
+    height: "360", // Set a fixed height
+    width: "640", // Set a fixed width
     playerVars: {
-      autoplay: 0,
-      controls: 1,
-      modestbranding: 1,
-      rel: 0,
-      fs: 1,
-      origin: window.location.origin,
+      autoplay: 1, // Start video automatically
+      controls: 1, // Show player controls
+      origin: window.location.origin, // Add the origin
     },
   };
 
@@ -1229,6 +1347,25 @@ const FirstBoard = () => {
         default:
           throw new Error(`Type not recognised: ${element.type}`);
       }
+    }
+
+    // Add cursor style for stickers
+    if (selectedSticker !== null) {
+      canvasRef.current.style.cursor = "grabbing";
+    } else {
+      stickers.forEach(sticker => {
+        const mouseX = element.x1 - panOffset.x;
+        const mouseY = element.y1 - panOffset.y;
+        if (
+          mouseX >= sticker.x &&
+          mouseX <= sticker.x + sticker.width &&
+          mouseY >= sticker.y &&
+          mouseY <= sticker.y + sticker.height
+        ) {
+          canvasRef.current.style.cursor = "grab";
+          return;
+        }
+      });
     }
   };
 
@@ -1352,13 +1489,20 @@ const FirstBoard = () => {
             </svg>
             Words
           </button>
+
+
+          
           <div className="relative">
             <button
+            ref={colorButtonRef}
               onClick={() => {
+                const rect = colorButtonRef.current.getBoundingClientRect();
+                setColorPanelPosition({ top: rect.bottom + 8, left: rect.left });
                 setShowColorPanel(!showColorPanel);
-                setShowThicknessPanel(false);
                 setShowFillPanel(false);
+                setShowThicknessPanel(false);
               }}
+              
               className="px-4 py-2 font-bold text-purple-800 transition bg-yellow-100 rounded-lg hover:bg-yellow-200"
             >
               <div
@@ -1368,7 +1512,10 @@ const FirstBoard = () => {
               Color
             </button>
             {showColorPanel && (
-              <div className="absolute left-0 z-20 p-4 mt-2 bg-white shadow-lg rounded-xl top-full">
+              <div
+                className="fixed z-50 p-4 bg-white shadow-lg rounded-xl"
+                style={{ top: `${colorPanelPosition.top}px`, left: `${colorPanelPosition.left}px` }}
+              >
                 <div className="grid grid-cols-4 gap-2">
                   {colorOptions.map((color) => (
                     <button
@@ -1391,10 +1538,14 @@ const FirstBoard = () => {
                 </div>
               </div>
             )}
+
           </div>
           <div className="relative">
             <button
+              ref={thicknessButtonRef}
               onClick={() => {
+                const rect = thicknessButtonRef.current.getBoundingClientRect();
+                setThicknessPanelPosition({ top: rect.bottom + 8, left: rect.left });
                 setShowThicknessPanel(!showThicknessPanel);
                 setShowColorPanel(false);
                 setShowFillPanel(false);
@@ -1402,12 +1553,12 @@ const FirstBoard = () => {
               className="px-4 py-2 font-bold text-purple-800 transition bg-yellow-100 rounded-lg hover:bg-yellow-200"
             >
               <svg className="inline-block w-6 h-6 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
-              Size
+              Thickness
             </button>
             {showThicknessPanel && (
-              <div className="absolute left-0 z-20 p-4 mt-2 bg-white shadow-lg rounded-xl top-full">
+              <div className="fixed left-0 z-20 p-4 mt-2 bg-white shadow-lg rounded-xl" style={{ top: `${thicknessPanelPosition.top}px`, left: `${thicknessPanelPosition.left}px` }}>
                 {thicknessOptions.map((thickness) => (
                   <button
                     key={thickness.value}
@@ -1439,7 +1590,10 @@ const FirstBoard = () => {
           </div>
           <div className="relative">
             <button
+              ref={fillButtonRef}
               onClick={() => {
+                const rect = fillButtonRef.current.getBoundingClientRect();
+                setFillPanelPosition({ top: rect.bottom + 8, left: rect.left });
                 setShowFillPanel(!showFillPanel);
                 setShowColorPanel(false);
                 setShowThicknessPanel(false);
@@ -1449,14 +1603,14 @@ const FirstBoard = () => {
               <svg className="inline-block w-6 h-6 mr-1" fill="currentColor" viewBox="0 0 20 20">
                 <path
                   fillRule="evenodd"
-                  d="M5 2a2 2 0 00-2 2v14l3.5-2 3.5 2 3.5-2 3.5 2V4a2 2 0 00-2-2H5zm4.707 3.707a1 1 0 00-1.414-1.414l-3 3a1 1 0 001.414 1.414l3-3zM11.293 9.707a1 1 0 011.414-1.414l3 3a1 1 0 01-1.414 1.414l-3-3z"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z"
                   clipRule="evenodd"
                 />
               </svg>
               Fill
             </button>
             {showFillPanel && (
-              <div className="absolute left-0 z-20 p-4 mt-2 bg-white shadow-lg rounded-xl top-full">
+              <div className="fixed left-0 z-20 p-4 mt-2 bg-white shadow-lg rounded-xl" style={{ top: `${fillPanelPosition.top}px`, left: `${fillPanelPosition.left}px` }}>
                 <div className="mb-3">
                   <h4 className="mb-2 text-sm font-bold text-purple-800">Fill Style</h4>
                   {fillOptions.map((fillStyle) => (
@@ -1536,8 +1690,13 @@ const FirstBoard = () => {
             className="w-10 h-10 border-2 border-purple-500 rounded-lg cursor-pointer"
             title="Page Color"
           />
-          <button
-            onClick={() => setShowVideoSection(!showVideoSection)}
+           <button
+            onClick={() => {
+              setShowVideoSection(!showVideoSection);
+              if (!showVideoSection && videos.length === 0) {
+                fetchVideos(searchQuery);
+              }
+            }}
             className={`px-4 py-2 rounded-lg text-purple-800 font-bold ${
               showVideoSection ? "bg-red-300" : "bg-red-100"
             } hover:bg-red-200 transition`}
@@ -1562,6 +1721,21 @@ const FirstBoard = () => {
               <path d="M10.5 10V6a.5.5 0 0 0-1 0v4a.5.5 0 0 0 1 0zm-4 0a.5.5 0 0 0-1 0v4a.5.5 0 0 0 1 0v-4zm8 0a.5.5 0 0 0-1 0v4a.5.5 0 0 0 1 0v-4z"/>
             </svg>
             Animate
+          </button>
+          <button
+            onClick={() => setShowStickerSection(!showStickerSection)}
+            className={`px-4 py-2 rounded-lg text-purple-800 font-bold ${
+              showStickerSection ? "bg-pink-300" : "bg-pink-100"
+            } hover:bg-pink-200 transition`}
+          >
+            <svg className="inline-block w-6 h-6 mr-1" fill="currentColor" viewBox="0 0 20 20">
+              <path
+                fillRule="evenodd"
+                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                clipRule="evenodd"
+              />
+            </svg>
+            Stickers
           </button>
         </div>
         <div className="flex space-x-2">
@@ -1619,104 +1793,127 @@ const FirstBoard = () => {
             Save
           </button>
         </div>
-      </div>
+      </div>{/* closing tag of the toolbar */}
 
-      {showVideoSection && (
+      {showColorPanel && (
         <div
-          className="fixed top-0 right-0 z-30 bg-white shadow-2xl"
-          style={{ width: `${window.innerWidth * 0.35}px`, height: "120vh", top: "2.5vh" }}
+          className="fixed z-50 p-4 bg-white shadow-lg rounded-xl"
+          style={{ top: `${colorPanelPosition.top}px`, left: `${colorPanelPosition.left}px` }}
         >
-          <div className="relative flex flex-col h-full p-4" onScroll={handleVideoSectionScroll}>
-            <button
-              className="absolute text-purple-800 top-2 right-2 hover:text-purple-600"
-              onClick={() => {
-                setShowVideoSection(false);
-                setSelectedVideoId(null);
-              }}
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-            <h3 className="mb-4 text-2xl font-bold text-purple-800">Fun Videos for Kids!</h3>
-            <div className="flex mb-6">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyPress={(e) => {
-                  if (e.key === "Enter") {
-                    fetchVideos(searchQuery);
-                  }
-                }}
-                placeholder="Search for kid-friendly videos..."
-                className="flex-1 px-4 py-3 mr-2 text-lg border-2 border-purple-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-              />
+          <div className="grid grid-cols-4 gap-2">
+            {colorOptions.map((color) => (
               <button
-                onClick={() => fetchVideos(searchQuery)}
-                className="px-6 py-3 text-lg font-bold text-white transition bg-purple-500 rounded-lg hover:bg-purple-600"
+                key={color.value}
+                onClick={() => {
+                  setSelectedColor(color);
+                  setShowColorPanel(false);
+                }}
+                className="w-8 h-8 border-2 border-purple-500 rounded-full"
+                style={{ backgroundColor: color.value }}
+                title={color.name}
               >
-                Search
-              </button>
-            </div>
-            {error && <p className="mb-4 text-lg text-red-600">{error}</p>}
-            {selectedVideoId ? (
-              <div className="flex-1">
-                <div className="relative" style={{ paddingBottom: "75%", height: 0 }}>
-                  <div className="absolute top-0 left-0 w-full h-full">
-                    <YouTube videoId={selectedVideoId} opts={playerOptions} />
-                  </div>
-                </div>
-                <button
-                  onClick={() => setSelectedVideoId(null)}
-                  className="w-full px-4 py-3 mt-4 text-lg font-bold text-purple-800 transition bg-yellow-100 rounded-lg hover:bg-yellow-200"
-                >
-                  Back to Videos
-                </button>
-              </div>
-            ) : (
-              <div className="flex-1 overflow-y-auto" onScroll={handleVideoSectionScroll}>
-                {isLoading ? (
-                  <div className="flex flex-col items-center justify-center h-full">
-                    <div className="relative w-16 h-16">
-                      <div className="absolute w-16 h-16 border-4 border-purple-200 rounded-full"></div>
-                      <div className="absolute w-16 h-16 border-4 border-purple-500 rounded-full border-t-transparent animate-spin"></div>
-                    </div>
-                    <p className="mt-4 text-lg font-semibold text-purple-800">Loading fun videos...</p>
-                  </div>
-                ) : videos.length > 0 ? (
-                  <div className="grid grid-cols-1 gap-4">
-                    {videos.map((video) => (
-                      <div
-                        key={video.id}
-                        className="flex flex-col p-4 transition bg-gray-100 rounded-lg cursor-pointer hover:bg-gray-200"
-                        onClick={() => setSelectedVideoId(video.id)}
-                      >
-                        <div className="relative mb-3 mb- personally" style={{ paddingBottom: "75%" }}>
-                          <img
-                            src={video.thumbnail}
-                            alt={video.title}
-                            className="absolute top-0 left-0 object-cover w-full h-full rounded-lg"
-                          />
-                        </div>
-                        <h4 className="text-lg font-semibold text-purple-800 line-clamp-2">{video.title}</h4>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center h-full">
-                    <p className="text-lg text-purple-800">No videos found. Try searching for something fun!</p>
-                  </div>
+                {selectedColor.value === color.value && (
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
                 )}
-              </div>
-            )}
-            <button
-              onClick={() => window.open("https://www.youtubekids.com/", "_blank")}
-              className="w-full px-4 py-3 mt-4 text-lg font-bold text-purple-800 transition bg-yellow-100 rounded-lg hover:bg-yellow-200"
-            >
-              Open YouTube Kids
-            </button>
+              </button>
+            ))}
           </div>
+        </div>
+      )}
+
+      {showThicknessPanel && (
+        <div className="fixed left-0 z-20 p-4 mt-2 bg-white shadow-lg rounded-xl" style={{ top: `${thicknessPanelPosition.top}px`, left: `${thicknessPanelPosition.left}px` }}>
+          {thicknessOptions.map((thickness) => (
+            <button
+              key={thickness.value}
+              onClick={() => {
+                setSelectedThickness(thickness);
+                setShowThicknessPanel(false);
+              }}
+              className="flex items-center w-full p-2 text-purple-800 rounded hover:bg-gray-100"
+            >
+              <div
+                className="w-12 mr-2 bg-gray-800 rounded-full"
+                style={{ height: `${thickness.value}px` }}
+              ></div>
+              <span>{thickness.name}</span>
+              {selectedThickness.value === thickness.value && (
+                <svg
+                  className="w-5 h-5 ml-auto text-purple-500"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {showFillPanel && (
+        <div className="fixed left-0 z-20 p-4 mt-2 bg-white shadow-lg rounded-xl" style={{ top: `${fillPanelPosition.top}px`, left: `${fillPanelPosition.left}px` }}>
+          <div className="mb-3">
+            <h4 className="mb-2 text-sm font-bold text-purple-800">Fill Style</h4>
+            {fillOptions.map((fillStyle) => (
+              <button
+                key={fillStyle.value}
+                onClick={() => setSelectedFillStyle(fillStyle)}
+                className={`flex items-center w-full p-2 rounded ${
+                  selectedFillStyle.value === fillStyle.value
+                    ? "bg-purple-100 text-purple-800"
+                    : "hover:bg-gray-100"
+                }`}
+              >
+                <span>{fillStyle.name}</span>
+                {selectedFillStyle.value === fillStyle.value && (
+                  <svg
+                    className="w-5 h-5 ml-auto text-purple-500"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </button>
+            ))}
+          </div>
+          {selectedFillStyle.value !== "none" && (
+            <div>
+              <h4 className="mb-2 text-sm font-bold text-purple-800">Fill Color</h4>
+              <div className="grid grid-cols-4 gap-2">
+                {colorOptions.map((color) => (
+                  <button
+                    key={`fill-${color.value}`}
+                    onClick={() => setSelectedFillColor(color)}
+                    className="w-8 h-8 border-2 border-purple-500 rounded-full"
+                    style={{ backgroundColor: color.value }}
+                    title={color.name}
+                  >
+                    {selectedFillColor.value === color.value && (
+                      <svg
+                        className="w-6 h-6 text-white"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M5 13l4 4L19 7"
+                        />
+                      </svg>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -1774,7 +1971,7 @@ const FirstBoard = () => {
                 </svg>
               </button>
             </div>
-            <p className="mb-2 overflow-auto text-lg text-purple-600 scrollbar scrollbar-thumb-blue-500 scrollbar-track-gray-100">Click on an image to add it to the canvas in a random position!</p>
+            <p className="mb-2 overflow-auto text-lg text-purple-600 scrollbar scrollbar-thumb-blue-500 scrollbar-track-gray-100 ">Click on an image to add it to the canvas in a random position!</p>
             <div className="grid grid-cols-2 gap-4 overflow-auto scrollbar scrollbar-thumb-blue-500 scrollbar-track-gray-100">
               {animationImages.map((image) => (
                 <div key={image.id} className="space-y-2">
@@ -1855,7 +2052,7 @@ const FirstBoard = () => {
             <svg className="w-12 h-12 text-red-600" fill="currentColor" viewBox="0 0 20 20">
               <path
                 fillRule="evenodd"
-                d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm-1.5 4a4.5 4.5 0 019 0V8c0 2.485 2.015 4.5 4.5 4.5h.5a1 1 0 110 2h-.5A6.5 6.5 0 013 8V8a4.5 4.5 0 01-1.5-8z"
+                d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm-1.5 4a4.5 4.5 0 019 0V8c0 2.485 2.015 4.5 4.5 4.5h.5a1 1 0 110 2h-.5A6.5 6.5 0 013 8V8a4.5-4.5 0 01-1.5-8z"
                 clipRule="evenodd"
               />
             </svg>
@@ -1877,6 +2074,124 @@ const FirstBoard = () => {
               <div className="absolute w-16 h-16 border-4 border-purple-500 rounded-full border-t-transparent animate-spin"></div>
             </div>
             <p className="mt-4 text-lg font-semibold text-white">Processing your audio...</p>
+          </div>
+        </div>
+      )}
+
+      {showVideoSection && !showVideoPlayer && (
+        <div
+          className="fixed top-0 right-0 z-30 w-1/4 h-screen p-4 bg-gray-100 shadow-lg"
+          style={{ top: "4rem", right: 0 }}
+        >
+          <h2 className="mb-4 text-xl font-bold text-purple-800">Fun Videos for Kids!</h2>
+          <div className="flex mb-4">
+            <input
+              type="text"
+              className="w-full p-2 mb-3 border-2 border-gray-300 rounded"
+              placeholder="Search videos"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyPress={(e) => e.key === "Enter" && fetchVideos(searchQuery)}
+            />
+            <button
+              onClick={() => fetchVideos(searchQuery)}
+              className="px-4 py-2 ml-2 font-bold text-white bg-purple-500 rounded hover:bg-purple-600"
+            >
+              Search
+            </button>
+          </div>
+          
+          {error && <p className="mb-2 text-red-500">{error}</p>}
+          
+          {isLoading ? (
+            <div className="flex items-center justify-center h-32">
+              <div className="w-8 h-8 border-4 border-purple-500 rounded-full animate-spin"></div>
+            </div>
+          ) : (
+            <div 
+              className="h-[calc(100vh-200px)] overflow-y-auto"
+              onWheel={handleVideoSectionScroll}
+            >
+              {videos.map((video) => (
+                <div 
+                  key={video.id} 
+                  className="mb-4 cursor-pointer" 
+                  onClick={() => {
+                    setSelectedVideoId(video.id);
+                    setShowVideoPlayer(true);
+                  }}
+                >
+                  <img
+                    src={video.thumbnail}
+                    alt={video.title}
+                    className="w-full mb-2 rounded"
+                  />
+                  <p className="text-sm text-purple-700">{video.title}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {showVideoPlayer && (
+        <div 
+          className="fixed top-0 right-0 z-30 w-1/4 h-screen p-4 bg-gray-100 shadow-lg"
+          style={{ top: "4rem", right: 0 }}
+        >
+          <div className="flex items-center justify-between mb-4">
+            <button
+              onClick={() => setShowVideoPlayer(false)}
+              className="px-4 py-2 font-bold text-purple-800 bg-yellow-100 rounded-lg hover:bg-yellow-200"
+            >
+              <span className="mr-2">←</span>
+              Back to Videos
+            </button>
+          </div>
+          
+          <div className="mt-4">
+            <YouTube
+              videoId={selectedVideoId}
+              opts={{
+                height: '240',
+                width: '100%',
+                playerVars: {
+                  autoplay: 1,
+                  controls: 1,
+                },
+              }}
+              onReady={(event) => {
+                console.log("YouTube component ready");
+              }}
+              onError={(error) => {
+                console.error("YouTube error:", error);
+                showCanvasAlert("Failed to load video");
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {showStickerSection && (
+        <div
+          className="fixed top-0 right-0 z-30 w-1/4 h-screen p-4 bg-gray-100 shadow-lg"
+          style={{ top: "4rem", right: 0 }}
+        >
+          <h2 className="mb-4 text-xl font-bold text-purple-800">Fun Stickers!</h2>
+          <div className="grid grid-cols-2 gap-4 overflow-y-auto h-[calc(100vh-200px)]">
+            {stickerOptions.map((sticker) => (
+              <div
+                key={sticker.id}
+                className="p-2 transition bg-white rounded-lg shadow-md cursor-pointer hover:shadow-lg"
+                onClick={() => handleStickerSelect(sticker.src)}
+              >
+                <img
+                  src={sticker.src}
+                  alt={sticker.alt}
+                  className="object-contain w-full h-32"
+                />
+              </div>
+            ))}
           </div>
         </div>
       )}
