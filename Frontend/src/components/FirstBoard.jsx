@@ -162,7 +162,7 @@ const positionWithinElement = (x, y, element) => {
       throw new Error(`Type not recognised: ${type}`);
   }
 };
-const distance = (a, b) => Math.sqrt(Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2));
+const distance = (a, b) => Math.sqrt(Math.pow(a.x - a.x, 2) + Math.pow(a.y - b.y, 2));
 const getElementAtPosition = (x, y, elements) =>
   elements
     .map((element) => ({ ...element, position: positionWithinElement(x, y, element) }))
@@ -320,6 +320,7 @@ const FirstBoard = () => {
   const colorButtonRef = useRef(null);
   const thicknessButtonRef = useRef(null);
   const fillButtonRef = useRef(null);
+  const [selectedImage, setSelectedImage] = useState(null);
 
   const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY;
   const GROQ_API_URL = import.meta.env.VITE_GROQ_API_URL;
@@ -711,6 +712,29 @@ const FirstBoard = () => {
     }
 
     if (tool === "selection") {
+      // Check for processed images first
+      const clickedImage = processedImages.findIndex(image => {
+        const imageX = image.x + panOffset.x;
+        const imageY = image.y + panOffset.y;
+        return (
+          clientX >= imageX &&
+          clientX <= imageX + image.width &&
+          clientY >= imageY &&
+          clientY <= imageY + image.height
+        );
+      });
+
+      if (clickedImage !== -1) {
+        setSelectedImage({
+          index: clickedImage,
+          offsetX: clientX - (processedImages[clickedImage].x + panOffset.x),
+          offsetY: clientY - (processedImages[clickedImage].y + panOffset.y)
+        });
+        setAction("moving-image");
+        return;
+      }
+
+      // Existing element selection code...
       const element = getElementAtPosition(clientX, clientY, elements);
       if (element) {
         if (element.type === "pencil") {
@@ -757,6 +781,20 @@ const FirstBoard = () => {
     if (tool === "selection") {
       const element = getElementAtPosition(clientX, clientY, elements);
       event.target.style.cursor = element ? cursorForPosition(element.position) : "default";
+    }
+
+    if (action === "moving-image" && selectedImage !== null) {
+      setProcessedImages(prev => prev.map((img, idx) => {
+        if (idx === selectedImage.index) {
+          return {
+            ...img,
+            x: clientX - selectedImage.offsetX - panOffset.x,
+            y: clientY - selectedImage.offsetY - panOffset.y
+          };
+        }
+        return img;
+      }));
+      return;
     }
 
     if (action === "drawing") {
@@ -816,6 +854,11 @@ const FirstBoard = () => {
         };
         updateElement(id, x1, y1, x2, y2, type, options);
       }
+    }
+    if (action === "moving-image") {
+      setSelectedImage(null);
+      setAction("none");
+      return;
     }
     if (action !== "writing") {
       setAction("none");
@@ -1951,7 +1994,11 @@ const FirstBoard = () => {
         onPointerUp={handlePointerUp}
         className="absolute top-0 left-0 z-0 touch-none"
         style={{
-          cursor: tool === "selection" ? "default" : "crosshair",
+          cursor: tool === "selection" 
+            ? action === "moving-image" 
+              ? "grabbing" 
+              : "default"
+            : "crosshair",
           width: showVideoSection ? `${window.innerWidth * 0.75}px` : "100%",
         }}
       />
