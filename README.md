@@ -1,16 +1,6 @@
-
-
-![github-submission-banner](https://github.com/user-attachments/assets/a1493b84-e4e2-456e-a791-ce35ee2bcf2f)
-
 # 🚀 <a href="https://imaginationbook-5d4r.onrender.com">ImaginationBook</a>
 
 > **Empowering children's creativity — turning their imagination into magical realities through AI.**
-
-----------
-
-## 📌 Problem Statement
-
-**Problem Statement 1 – Weave AI magic with Groq**
 
 ----------
 
@@ -21,18 +11,6 @@ While much attention is focused on the future of AI, we believe the real future 
 We empower kids to become creators, not just users.
 
 ----------
-
-## 🧠 Team & Approach
-
-### Team Name:
-
-`SERP`
-
-### Team Members:
-
--   **Prantik Sanki** (Full Stack Developer)
-    
--   **Soham Pahari** (AI Developer)
     
 
 ### Our Approach:
